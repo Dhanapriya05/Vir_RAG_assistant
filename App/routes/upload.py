@@ -13,6 +13,9 @@ router = APIRouter()
 
 
 @router.post("/upload")
+
+
+
 async def upload_document(file: UploadFile = File(...)):
 
     # ----------------------------------
@@ -32,6 +35,7 @@ async def upload_document(file: UploadFile = File(...)):
     # ----------------------------------
 
     pages = extract_text(saved_path)
+
 
     print(f"\nTotal Pages : {len(pages)}")
 

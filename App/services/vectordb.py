@@ -18,7 +18,12 @@ COLLECTION_NAME = "pdf-rag-chatbot"
 def _get_qdrant_client():
     if QDRANT_URL and QDRANT_API_KEY:
         try:
-            c = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, check_compatibility=False)
+            c = QdrantClient(
+                url=QDRANT_URL,
+                api_key=QDRANT_API_KEY,
+                check_compatibility=False,
+                timeout=5,          # ← Don't hang startup if cloud is unreachable
+            )
             c.get_collections()
             return c
         except Exception as e:
