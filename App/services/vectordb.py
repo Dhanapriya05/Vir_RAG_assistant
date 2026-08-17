@@ -9,40 +9,46 @@ from qdrant_client.models import (
     PayloadSchemaType,
 )
 
+import os
 from config import QDRANT_URL, QDRANT_API_KEY
 from services.section_parser import detect_section
 
-client = QdrantClient(
-    url=QDRANT_URL,
-    api_key=QDRANT_API_KEY,
-)
-
 COLLECTION_NAME = "pdf-rag-chatbot"
+
+def _get_qdrant_client():
+    if QDRANT_URL and QDRANT_API_KEY:
+        try:
+            c = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, check_compatibility=False)
+            c.get_collections()
+            return c
+        except Exception as e:
+            print(f"Warning: Cloud Qdrant connection failed ({e}). Falling back to local storage './data/qdrant_db'")
+    os.makedirs("data/qdrant_db", exist_ok=True)
+    return QdrantClient(path="data/qdrant_db")
+
+client = _get_qdrant_client()
 
 # --------------------------------------------------
 # Create Collection
 # --------------------------------------------------
 
-collections = client.get_collections().collections
-
-if COLLECTION_NAME not in [c.name for c in collections]:
-
-    client.create_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(
-            size=1024,
-            distance=Distance.COSINE,
-        ),
-    )
-
 try:
+    collections = client.get_collections().collections
+    if COLLECTION_NAME not in [c.name for c in collections]:
+        client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=VectorParams(
+                size=1024,
+                distance=Distance.COSINE,
+            ),
+        )
     client.create_payload_index(
         collection_name=COLLECTION_NAME,
         field_name="filename",
         field_schema=PayloadSchemaType.KEYWORD,
     )
-except Exception:
-    pass
+except Exception as e:
+    print(f"Qdrant collection setup note: {e}")
 
 
 # --------------------------------------------------

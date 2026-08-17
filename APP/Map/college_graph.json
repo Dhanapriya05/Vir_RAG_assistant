@@ -2,7 +2,7 @@
   "_meta": {
     "college": "P.T.Lee Chengalvaraya Naicker College of Engineering and Technology",
     "address": "Oovery, Veliyur Post, Kanchipuram - 631502",
-    "source": "Ground/First/Second floor directory board (photographed, not a physical layout map)",
+    "source": "Ground/First/Second floor directory board ",
     "important_note": "Node data (id, name, floor, category) is transcribed from the directory board and corrected against user on-site knowledge where provided. EDGES are still mostly INFERRED from sequential room numbering along each floor's corridor, plus 5 real stairwell locations confirmed by the user. Building is square-shaped ground floor; a tentative loop-closing edge (G24-G02) has been added but needs confirmation. Treat edge weights as placeholder walking-distance units (1 edge = 1 unit) until measured. Entrance/Lobby is G00 (renamed from G01 per user). Nodes/edges with 'verified': false still need on-site confirmation."
   },
   "nodes": [
@@ -33,11 +33,10 @@
     {"id": "G23B", "name": "Director Chamber", "floor": 0, "category": "admin"},
     {"id": "G24", "name": "Office Room", "floor": 0, "category": "admin"},
     {"id": "G_LOUNGE", "name": "Sitting Lounge Area", "floor": 0, "category": "common"},
-
     {"id": "F01", "name": "Mathematics Dept Faculty Room", "floor": 1, "category": "faculty_room"},
     {"id": "F02", "name": "CSE(A) - II Year", "floor": 1, "category": "lecture_hall"},
     {"id": "F03", "name": "CSE(B) - II Year", "floor": 1, "category": "lecture_hall"},
-    {"id": "F04", "name": "Director Room", "floor": 1, "category": "admin", "note": "Confirmed by user. Note there is also a 'Director Chamber' listed at G23B on the ground floor board — may be two director offices, or G23B may need re-checking."},
+    {"id": "F04", "name": "Director Room", "floor": 1, "category": "admin", "note": "Confirmed by user."},
     {"id": "F05", "name": "English - Professional Communication Laboratory", "floor": 1, "category": "lab"},
     {"id": "F06", "name": "Library", "floor": 1, "category": "facility"},
     {"id": "F07", "name": "Library (continued)", "floor": 1, "category": "facility", "verified": false},

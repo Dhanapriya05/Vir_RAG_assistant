@@ -1,7 +1,10 @@
-def build_prompt(context, question, history, question_type):
+def build_prompt(context, question, history=None, question_type="General"):
     """
     Build a structured prompt for Retrieval-Augmented Generation (RAG).
     """
+
+    if history is None:
+        history = []
 
     conversation = ""
 
