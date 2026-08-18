@@ -95,7 +95,7 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader(
         "Choose a PDF",
-        type=["pdf"]
+        type=["pdf","csv","docx"]
     )
 
     if uploaded_file is not None:
