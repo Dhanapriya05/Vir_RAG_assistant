@@ -54,7 +54,7 @@ def process_question(question):
 
     response = ask_question(
         question=question,
-        filename=st.session_state.document_name,
+        filename="",                           # "" → backend searches ALL stored documents
         history=st.session_state.messages[-6:]
     )
 
@@ -150,7 +150,7 @@ with st.sidebar:
 
     if st.session_state.document_uploaded:
 
-        st.success("🟢 Ready")
+        st.success("🟢 Document indexed this session")
 
         st.write(
             f"📄 **{st.session_state.document_name}**"
@@ -162,7 +162,7 @@ with st.sidebar:
 
     else:
 
-        st.warning("No document uploaded")
+        st.info("🟡 Using knowledge from past uploads")
 
     # ------------------------------------------
     # Suggested Questions
@@ -244,8 +244,7 @@ if (
 # --------------------------------------------------
 
 prompt = st.chat_input(
-    "Ask anything about your document...",
-    disabled=not st.session_state.document_uploaded
+    "Ask anything...",
 )
 
 if prompt:

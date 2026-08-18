@@ -10,7 +10,7 @@
 ## 🏗️ Repository Overview
 
 ```
-Vir_RAG_assistant/
+Vir_RAG_assistant/      
 ├── App/                         # Document RAG Assistant (FastAPI + Streamlit)
 │   ├── routes/                  # API endpoints (/upload, /chat, /suggestions)
 │   ├── services/                # Text extraction, Jina embeddings, Qdrant, Groq LLM

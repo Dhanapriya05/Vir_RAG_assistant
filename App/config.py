@@ -26,5 +26,7 @@ ALLOWED_EXTENSIONS = {
     "txt",
     "csv"
 }
+#csv is there yet u can't add it in there 
+
 
 MAX_FILE_SIZE = 20 * 1024 * 1024
