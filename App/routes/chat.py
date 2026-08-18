@@ -12,6 +12,8 @@ from services.nav_intent import is_navigation_query
 from services.staff_intent import is_staff_query
 from services.tool_caller import generate_with_tools
 from services.map_tools import TOOL_DEFINITIONS
+from services.router import route_question
+from services.sql_engine import run_sql
 
 router = APIRouter()
 
@@ -146,16 +148,16 @@ async def chat(request: ChatRequest):
         }
 
     # -------------------------------------------------------
-    # PATH 3 — Document RAG
+    # PATH 3 — Routed: LOOKUP (RAG) | COMPUTE (SQL) | HYBRID
     # -------------------------------------------------------
 
-    print(f"\n[Chat] DOCUMENT RAG path")
+    # Step 1 — Route the question
+    intent = route_question(request.question)
+    print(f"\n[Chat] Router intent → {intent}")
 
-    # Classify question type
-    question_type = classify_question(request.question)
-    print(f"Question Type: {question_type}")
-
-    # Rewrite query for multi-turn conversations
+    # ------------------------------------------------------------------
+    # Rewrite query for multi-turn conversations (shared by all branches)
+    # ------------------------------------------------------------------
     if needs_query_rewrite(request.question):
         retrieval_query = rewrite_query(
             question=request.question,
@@ -166,15 +168,139 @@ async def chat(request: ChatRequest):
 
     print(f"Retrieval Query: {retrieval_query}")
 
-    # Retrieve context (from specific doc or all docs)
+    # ==================================================================
+    # BRANCH: COMPUTE — SQL tool-call against uploaded CSV tables
+    # ==================================================================
+    if intent == "COMPUTE":
+
+        print("[Chat] → COMPUTE branch: running SQL engine")
+
+        sql_result = run_sql(question=retrieval_query, filename=filename)
+
+        if sql_result["error"]:
+            # SQL failed — degrade gracefully to a natural-language error
+            answer = (
+                f"I tried to compute that from the tabular data but ran into a problem: "
+                f"{sql_result['error']}"
+            )
+        else:
+            # Format raw SQL result into natural language
+            rows_text = ""
+            if sql_result["rows"]:
+                rows_text = "\n".join(
+                    ", ".join(f"{k}: {v}" for k, v in row.items())
+                    for row in sql_result["rows"]
+                )
+            else:
+                rows_text = "(no rows returned)"
+
+            format_prompt = (
+                f"You are Vir, an AI campus assistant.\n\n"
+                f"A SQL query was run to answer this question:\n"
+                f"Question: {request.question}\n\n"
+                f"SQL executed:\n{sql_result['sql']}\n\n"
+                f"Result:\n{rows_text}\n\n"
+                f"Write a single clear, natural-language sentence (or short paragraph) "
+                f"that directly answers the question using the result above. "
+                f"Do NOT show the SQL. Be concise."
+            )
+            answer = generate_response(format_prompt)
+
+        followups = generate_followup_questions(
+            question=request.question,
+            answer=answer,
+        )
+
+        return {
+            "question": request.question,
+            "answer": answer,
+            "followups": followups,
+            "source": "compute",
+            "debug": {
+                "intent": "COMPUTE",
+                "sql": sql_result.get("sql", ""),
+                "rows_returned": len(sql_result.get("rows", [])),
+            },
+        }
+
+    # ==================================================================
+    # BRANCH: HYBRID — SQL first, then RAG, merge for final answer
+    # ==================================================================
+    if intent == "HYBRID":
+
+        print("[Chat] → HYBRID branch: SQL → RAG → merge")
+
+        # Step A — SQL to find the specific entity
+        sql_result = run_sql(question=retrieval_query, filename=filename)
+
+        sql_summary = ""
+        if sql_result["error"]:
+            sql_summary = f"SQL lookup failed: {sql_result['error']}"
+        elif sql_result["rows"]:
+            sql_summary = "SQL result:\n" + "\n".join(
+                ", ".join(f"{k}: {v}" for k, v in row.items())
+                for row in sql_result["rows"]
+            )
+        else:
+            sql_summary = "SQL returned no rows."
+
+        # Step B — Use the SQL result as a refined retrieval query
+        rag_query = f"{retrieval_query} — {sql_summary}"
+        question_type = classify_question(request.question)
+        context = retrieve_context(
+            question=rag_query,
+            filename=filename,
+            question_type=question_type,
+        )
+
+        # Step C — Merge both results for final formatting
+        merge_prompt = (
+            f"You are Vir, an AI campus assistant.\n\n"
+            f"A two-step lookup was performed to answer this question:\n"
+            f"Question: {request.question}\n\n"
+            f"--- SQL Result (exact/computed data) ---\n"
+            f"{sql_summary}\n\n"
+            f"--- Document Context (descriptive/semantic match) ---\n"
+            f"{context}\n\n"
+            f"Using BOTH results above, write a complete, natural-language answer. "
+            f"Lead with the computed fact, then add descriptive detail from the document. "
+            f"Do NOT mention SQL or the retrieval process."
+        )
+        answer = generate_response(merge_prompt)
+
+        followups = generate_followup_questions(
+            question=request.question,
+            answer=answer,
+        )
+
+        return {
+            "question": request.question,
+            "answer": answer,
+            "followups": followups,
+            "source": "hybrid",
+            "debug": {
+                "intent": "HYBRID",
+                "sql": sql_result.get("sql", ""),
+                "rows_returned": len(sql_result.get("rows", [])),
+            },
+        }
+
+    # ==================================================================
+    # BRANCH: LOOKUP — Classic Qdrant RAG (default / safe path)
+    # ==================================================================
+
+    print("[Chat] → LOOKUP branch: Qdrant RAG")
+
+    question_type = classify_question(request.question)
+    print(f"Question Type: {question_type}")
+
     context = retrieve_context(
         question=retrieval_query,
         filename=filename,
         question_type=question_type,
     )
 
-    # Build structured prompt
-    prompt = build_prompt( 
+    prompt = build_prompt(
         context=context,
         question=request.question,
         history=request.history,
@@ -185,14 +311,12 @@ async def chat(request: ChatRequest):
     print(prompt)
     print("\n============================\n")
 
-    # Generate answer
     answer = generate_response(prompt)
 
     print("\n========== ANSWER ==========\n")
     print(answer)
     print("\n============================\n")
 
-    # Generate follow-ups
     followups = generate_followup_questions(
         question=request.question,
         answer=answer,
@@ -202,5 +326,7 @@ async def chat(request: ChatRequest):
         "question": request.question,
         "answer": answer,
         "followups": followups,
-        "source": "document",
+        "source": "lookup",
+        "debug": {"intent": "LOOKUP"},
     }
+
