@@ -94,8 +94,13 @@ with st.sidebar:
     st.subheader("Upload Document")
 
     uploaded_file = st.file_uploader(
+<<<<<<< HEAD
+        "Choose a document",
+        type=["pdf", "docx", "txt", "csv"]
+=======
         "Choose a PDF",
         type=["pdf","csv","docx"]
+>>>>>>> 86345c40f3e67855023c238de48c970523a7f696
     )
 
     if uploaded_file is not None:

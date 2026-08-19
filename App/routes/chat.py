@@ -1,7 +1,11 @@
+import os
+import sys
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from services.retriever import retrieve_context
+from services.vectordb import search_embeddings
+from services.embeddings import generate_query_embedding
 from services.prompt_builder import build_prompt
 from services.llm import generate_response
 from services.followups import generate_followup_questions
@@ -9,17 +13,10 @@ from services.question_classifier import classify_question
 from services.query_classifier import needs_query_rewrite
 from services.query_rewriter import rewrite_query
 from services.nav_intent import is_navigation_query
-from services.staff_intent import is_staff_query
 from services.tool_caller import generate_with_tools
-from services.map_tools import TOOL_DEFINITIONS
-from services.router import route_question
-from services.sql_engine import run_sql
+from config import UPLOAD_FOLDER
 
 router = APIRouter()
-
-# --------------------------------------------------
-# System prompt: pure navigation (no document)
-# --------------------------------------------------
 
 _NAV_SYSTEM_PROMPT = """You are Vir, an intelligent campus assistant for
 P.T. Lee Chengalvaraya Naicker College of Engineering and Technology.
@@ -32,242 +29,111 @@ You have access to these tools:
 - get_room_info(room_id): Get details about a specific room.
 
 RULES:
-- Always call the appropriate tool to answer navigation questions — never guess.
+- Always call the appropriate tool to answer navigation questions -- never guess or invent room locations.
 - Present directions in a clear, friendly, step-by-step format.
-- If a room is not found, suggest alternatives using list_rooms.
-- Keep responses concise and helpful.
-"""
-
-# --------------------------------------------------
-# System prompt: hybrid staff-lookup + navigation
-# --------------------------------------------------
-
-_HYBRID_SYSTEM_PROMPT = """You are Vir, an intelligent campus assistant for
-P.T. Lee Chengalvaraya Naicker College of Engineering and Technology.
-
-A staff directory document has been retrieved and is provided to you as context below.
-
-Your job:
-1. Read the context to find which ROOM or LOCATION the person is in.
-2. Use the find_path tool to get walking directions to that room.
-3. Combine the answer: who is there, where the room is, and how to get there.
-
-You have access to these tools:
-- find_path(source, destination): Get shortest route + step-by-step directions.
-- list_rooms(query): Search rooms by name, category, or floor.
-- get_room_info(room_id): Get details about a specific room.
-
-RULES:
-- ALWAYS call find_path after identifying the room — do not skip the directions.
-- If the context does not mention the person, say so clearly.
-- If multiple people match, list all of them.
-- Do NOT invent room numbers not mentioned in the context.
-
---- STAFF DIRECTORY CONTEXT ---
-{context}
---- END CONTEXT ---
+- If the user asks where they are or where to go, guide them politely.
+- If a room is not found, suggest similar alternatives using list_rooms.
+- Keep responses concise, clear, and helpful.
 """
 
 
 class ChatRequest(BaseModel):
     question: str
-    filename: str = ""        # Optional — empty string = search all docs
+    filename: str = ""
     history: list = []
 
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
-
-    filename = request.filename.strip() or None  # None → multi-doc search idk why we need this 
-
-    # -------------------------------------------------------
-    # PATH 1 — Hybrid: Staff location + Navigation
-    # -------------------------------------------------------
-
-    if is_staff_query(request.question):
-
-        print(f"\n[Chat] HYBRID intent → RAG for staff location + Map tool")
-
-        # Step 1: RAG to find staff location from the staff directory
-        context = retrieve_context(
-            question=request.question,
-            filename=filename,        # searches all docs if None we cn modify this 
-            question_type="General",
-        )
-
-        # Step 2: Inject context into the hybrid system prompt
-        hybrid_prompt = _HYBRID_SYSTEM_PROMPT.format(
-            context=context if context.strip() else "No staff directory uploaded yet."
-        )
-
-        # Step 3: Groq LLM reads context + calls find_path tool
-        answer = generate_with_tools(
-            system_prompt=hybrid_prompt,
-            user_message=request.question,
-            history=request.history,
-        )
-
-        followups = generate_followup_questions( # how does this even happen
-            question=request.question,
-            answer=answer,
-        )
-
-        print(f"\n[Chat] Hybrid answer: {answer[:200]}")
-
-        return {
-            "question": request.question,
-            "answer": answer,
-            "followups": followups,
-            "source": "hybrid",
-        }
-
-    # -------------------------------------------------------
-    # PATH 2 — Pure Navigation (no document needed)
-    # -------------------------------------------------------
-
-    if is_navigation_query(request.question):
-
-        print(f"\n[Chat] NAVIGATION intent → Map MCP Tools")
-
-        answer = generate_with_tools(
-            system_prompt=_NAV_SYSTEM_PROMPT,
-            user_message=request.question,
-            history=request.history,
-        )
-
-        followups = generate_followup_questions(
-            question=request.question,
-            answer=answer,
-        )
-
-        return {
-            "question": request.question,
-            "answer": answer,
-            "followups": followups,
-            "source": "navigation",
-        }
-
-    # -------------------------------------------------------
-    # PATH 3 — Routed: LOOKUP (RAG) | COMPUTE (SQL) | HYBRID
-    # -------------------------------------------------------
-
-    # Step 1 — Route the question
-    intent = route_question(request.question)
-    print(f"\n[Chat] Router intent → {intent}")
-
-    # ------------------------------------------------------------------
-    # Rewrite query for multi-turn conversations (shared by all branches)
-    # ------------------------------------------------------------------
-    if needs_query_rewrite(request.question):
-        retrieval_query = rewrite_query(
-            question=request.question,
-            history=request.history,
-        )
-    else:
-        retrieval_query = request.question
-
-    print(f"Retrieval Query: {retrieval_query}")
-
-    # ==================================================================
-    # BRANCH: COMPUTE — SQL tool-call against uploaded CSV tables
-    # ==================================================================
-    if intent == "COMPUTE":
-
-        print("[Chat] → COMPUTE branch: running SQL engine")
-
-        sql_result = run_sql(question=retrieval_query, filename=filename)
-
-        if sql_result["error"]:
-            # SQL failed — degrade gracefully to a natural-language error
-            answer = (
-                f"I tried to compute that from the tabular data but ran into a problem: "
-                f"{sql_result['error']}"
+    try:
+        # ------------------------------------
+        # 1. Detect Navigation Intent
+        # ------------------------------------
+        if is_navigation_query(request.question):
+            print(f"\n[Chat] Navigation intent detected -> using Map MCP Tools")
+            answer = generate_with_tools(
+                system_prompt=_NAV_SYSTEM_PROMPT,
+                user_message=request.question,
+                history=request.history,
             )
-        else:
-            # Format raw SQL result into natural language
-            rows_text = ""
-            if sql_result["rows"]:
-                rows_text = "\n".join(
-                    ", ".join(f"{k}: {v}" for k, v in row.items())
-                    for row in sql_result["rows"]
-                )
-            else:
-                rows_text = "(no rows returned)"
-
-            format_prompt = (
-                f"You are Vir, an AI campus assistant.\n\n"
-                f"A SQL query was run to answer this question:\n"
-                f"Question: {request.question}\n\n"
-                f"SQL executed:\n{sql_result['sql']}\n\n"
-                f"Result:\n{rows_text}\n\n"
-                f"Write a single clear, natural-language sentence (or short paragraph) "
-                f"that directly answers the question using the result above. "
-                f"Do NOT show the SQL. Be concise."
+            followups = generate_followup_questions(
+                question=request.question,
+                answer=answer,
             )
-            answer = generate_response(format_prompt)
+            return {
+                "question": request.question,
+                "answer": answer,
+                "followups": followups,
+                "source": "navigation",
+                "sources": [],
+            }
 
-        followups = generate_followup_questions(
-            question=request.question,
-            answer=answer,
-        )
+        # ------------------------------------
+        # 2. Document RAG Path
+        # ------------------------------------
+        print(f"\n[Chat] Document RAG path for query: {request.question}")
 
-        return {
-            "question": request.question,
-            "answer": answer,
-            "followups": followups,
-            "source": "compute",
-            "debug": {
-                "intent": "COMPUTE",
-                "sql": sql_result.get("sql", ""),
-                "rows_returned": len(sql_result.get("rows", [])),
-            },
-        }
+        uploaded_files = os.listdir(UPLOAD_FOLDER) if os.path.exists(UPLOAD_FOLDER) else []
+        has_files = len(uploaded_files) > 0
 
-    # ==================================================================
-    # BRANCH: HYBRID — SQL first, then RAG, merge for final answer
-    # ==================================================================
-    if intent == "HYBRID":
-
-        print("[Chat] → HYBRID branch: SQL → RAG → merge")
-
-        # Step A — SQL to find the specific entity
-        sql_result = run_sql(question=retrieval_query, filename=filename)
-
-        sql_summary = ""
-        if sql_result["error"]:
-            sql_summary = f"SQL lookup failed: {sql_result['error']}"
-        elif sql_result["rows"]:
-            sql_summary = "SQL result:\n" + "\n".join(
-                ", ".join(f"{k}: {v}" for k, v in row.items())
-                for row in sql_result["rows"]
-            )
-        else:
-            sql_summary = "SQL returned no rows."
-
-        # Step B — Use the SQL result as a refined retrieval query
-        rag_query = f"{retrieval_query} — {sql_summary}"
         question_type = classify_question(request.question)
-        context = retrieve_context(
-            question=rag_query,
-            filename=filename,
+        print(f"Question Type: {question_type}")
+
+        # Query Rewriting if needed
+        if needs_query_rewrite(request.question):
+            retrieval_query = rewrite_query(
+                question=request.question,
+                history=request.history,
+            )
+        else:
+            retrieval_query = request.question
+
+        print(f"Retrieval Query: {retrieval_query}")
+
+        # Generate Query Embedding and search Qdrant
+        query_embedding = generate_query_embedding(retrieval_query)
+        results = search_embeddings(
+            query_embedding=query_embedding,
+            filename=request.filename if request.filename else None,
+            top_k=8,
+        )
+
+        chunks = results["documents"][0] if results.get("documents") else []
+        sources = results.get("sources", [])
+
+        if not chunks:
+            if not has_files:
+                return {
+                    "question": request.question,
+                    "answer": "No documents are currently uploaded to the Knowledge Base. Please go to the **Knowledge Base** page (`/knowledge-base`) to upload your PDF, Excel (.xlsx, .xls), or CSV files.",
+                    "followups": ["How do I upload files to the Knowledge Base?", "Where can I find the Knowledge Base link?"],
+                    "source": "document",
+                    "sources": [],
+                }
+            else:
+                return {
+                    "question": request.question,
+                    "answer": "I couldn't find specific information regarding your question in the college records. Please rephrase or ask about courses, departments, or facilities.",
+                    "followups": ["What courses are offered?", "What facilities are available?"],
+                    "source": "document",
+                    "sources": [],
+                }
+
+        # Format context for prompt
+        context = "\n\n".join(chunks)
+
+        # Build Prompt
+        prompt = build_prompt(
+            context=context,
+            question=request.question,
+            history=request.history,
             question_type=question_type,
         )
 
-        # Step C — Merge both results for final formatting
-        merge_prompt = (
-            f"You are Vir, an AI campus assistant.\n\n"
-            f"A two-step lookup was performed to answer this question:\n"
-            f"Question: {request.question}\n\n"
-            f"--- SQL Result (exact/computed data) ---\n"
-            f"{sql_summary}\n\n"
-            f"--- Document Context (descriptive/semantic match) ---\n"
-            f"{context}\n\n"
-            f"Using BOTH results above, write a complete, natural-language answer. "
-            f"Lead with the computed fact, then add descriptive detail from the document. "
-            f"Do NOT mention SQL or the retrieval process."
-        )
-        answer = generate_response(merge_prompt)
+        # Generate Answer using LLM
+        answer = generate_response(prompt)
 
+        # Generate Follow-up Questions
         followups = generate_followup_questions(
             question=request.question,
             answer=answer,
@@ -277,56 +143,15 @@ async def chat(request: ChatRequest):
             "question": request.question,
             "answer": answer,
             "followups": followups,
-            "source": "hybrid",
-            "debug": {
-                "intent": "HYBRID",
-                "sql": sql_result.get("sql", ""),
-                "rows_returned": len(sql_result.get("rows", [])),
-            },
+            "source": "document",
+            "sources": sources,
         }
-
-    # ==================================================================
-    # BRANCH: LOOKUP — Classic Qdrant RAG (default / safe path)
-    # ==================================================================
-
-    print("[Chat] → LOOKUP branch: Qdrant RAG")
-
-    question_type = classify_question(request.question)
-    print(f"Question Type: {question_type}")
-
-    context = retrieve_context(
-        question=retrieval_query,
-        filename=filename,
-        question_type=question_type,
-    )
-
-    prompt = build_prompt(
-        context=context,
-        question=request.question,
-        history=request.history,
-        question_type=question_type,
-    )
-
-    print("\n========== PROMPT ==========\n")
-    print(prompt)
-    print("\n============================\n")
-
-    answer = generate_response(prompt)
-
-    print("\n========== ANSWER ==========\n")
-    print(answer)
-    print("\n============================\n")
-
-    followups = generate_followup_questions(
-        question=request.question,
-        answer=answer,
-    )
-
-    return {
-        "question": request.question,
-        "answer": answer,
-        "followups": followups,
-        "source": "lookup",
-        "debug": {"intent": "LOOKUP"},
-    }
-
+    except Exception as e:
+        print(f"[Chat Endpoint Error]: {e}")
+        return {
+            "question": request.question,
+            "answer": f"Unable to process query at the moment: {e}",
+            "followups": [],
+            "source": "error",
+            "sources": [],
+        }
