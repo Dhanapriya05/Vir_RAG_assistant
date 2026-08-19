@@ -1,7 +1,7 @@
 import re
 
 
-SECTION_PATTERNS = [
+SECTION_PATTERNS = [ #we beed to chnag this section patterns
     "abstract",
     "introduction",
     "background",

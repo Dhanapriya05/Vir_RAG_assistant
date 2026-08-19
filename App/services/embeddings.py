@@ -47,4 +47,4 @@ def generate_document_embeddings(chunks):
 
 def generate_query_embedding(question):
     print("Generating query embedding using Jina AI...")
-    return _embed([question], "retrieval.query")[0]
+    return _embed([question], "retrieval.query")[0] # why are we access the 0th index 

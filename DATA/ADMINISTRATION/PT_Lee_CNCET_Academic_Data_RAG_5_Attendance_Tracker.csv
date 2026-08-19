@@ -1,0 +1,12 @@
+P.T. LEE CNCET - SUBJECT-WISE ATTENDANCE TRACKER & EXAM ELIGIBILITY ENGINE,,,,,,,,
+"Automated Tracking of Classes, Attendance Percentage, Condonation Thresholds, and Exam Hall Ticket Status",,,,,,,,
+,,,,,,,,
+Course Code,Course Name,Faculty In-Charge,Total Classes Conducted,Classes Attended,Classes Missed (Absent),Attendance Percentage (%),Anna University Exam Eligibility,Action / Exemption Required
+CS3491,Artificial Intelligence and Machine Learning,Faculty - AI&DS/IT Dept,52,48,4,0.9230769230769231,ELIGIBLE,Normal Eligibility (Hall Ticket Issued)
+CS3492,Database Management Systems,Faculty - IT Dept,48,42,6,0.875,ELIGIBLE,Normal Eligibility (Hall Ticket Issued)
+IT3401,Web Essentials (Full Stack Web Lab),Faculty - IT Dept,50,46,4,0.92,ELIGIBLE,Normal Eligibility (Hall Ticket Issued)
+CS3451,Introduction to Operating Systems,Faculty - CSE/IT Dept,46,33,13,0.717391304347826,CONDONATION REQUIRED,Submit Medical Certificate + Condonation Form
+CS3452,Theory of Computation,Faculty - IT Dept,45,27,18,0.6,DETAINED (SA),CRITICAL: Shortage of Attendance (<65%) - Barred from Exam
+CS3461,Operating Systems Laboratory,Lab In-Charge,16,15,1,0.9375,ELIGIBLE,Normal Eligibility (Hall Ticket Issued)
+CS3481,DBMS Laboratory,Lab In-Charge,16,16,0,1,ELIGIBLE,Normal Eligibility (Hall Ticket Issued)
+Aggregate Total,Cumulative Across All Courses,,273,227,46,0.8315018315018315,OVERALL ELIGIBLE,

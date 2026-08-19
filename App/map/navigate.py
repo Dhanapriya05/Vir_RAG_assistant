@@ -22,6 +22,8 @@ import sys
 from pathlib import Path
 
 GRAPH_PATH = Path(__file__).parent / "college_graph.json"
+if not GRAPH_PATH.exists():
+    GRAPH_PATH = Path(__file__).parent / "college_grap.json"
 
 
 def load_graph():
