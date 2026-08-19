@@ -251,6 +251,24 @@ def init_schema(conn: sqlite3.Connection):
         GROUP BY reg_no
     ) att ON s.reg_no = att.reg_no
     LEFT JOIN view_student_performance_summary perf ON s.reg_no = perf.reg_no;
+
+    -- ── Schema Master (LLM Context Catalog) ──────────────────────────────
+    -- Stores every table/view column with human-readable descriptions
+    -- so the LLM can get the full DB layout by querying this one table.
+    CREATE TABLE IF NOT EXISTS schema_master (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        object_name         TEXT NOT NULL,
+        object_type         TEXT NOT NULL,
+        column_name         TEXT NOT NULL,
+        column_type         TEXT,
+        is_primary_key      INTEGER DEFAULT 0,
+        is_foreign_key      INTEGER DEFAULT 0,
+        fk_references       TEXT,
+        description         TEXT,
+        sample_values       TEXT,
+        UNIQUE(object_name, column_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_schema_obj ON schema_master(object_name);
     """)
     conn.commit()
 
@@ -819,8 +837,191 @@ def ingest_regulations(conn: sqlite3.Connection):
                     """, (rid, "GPA & CGPA Calculations", f"Calculation Formula Step {i}", line, "", "gpa formula, cgpa calculation, sgpa, credits"))
                     loaded += 1
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Schema Master Ingestion
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Rich, human-readable metadata for every column in every table/view.
+# This is what the LLM reads to understand the database before writing SQL.
+SCHEMA_METADATA = {
+    "students": {
+        "_type": "table",
+        "_description": "Master directory of all enrolled students across all years and departments.",
+        "reg_no":            ("TEXT", 1, 0, None, "Unique 12-digit Anna University Register Number (Primary Key). e.g. 511523205001", "511523205001, 511524243001"),
+        "student_name":      ("TEXT", 0, 0, None, "Student full name in UPPER CASE.", "AATHI S, ABARNA V"),
+        "department":        ("TEXT", 0, 0, None, "Branch abbreviation. Values: IT, CSE, AI&DS, MECH, ECE, EEE, CIVIL.", "IT, CSE, AI&DS"),
+        "batch":             ("TEXT", 0, 0, None, "Admission-to-graduation year range. e.g. 2023-2027 for 3rd-year students.", "2023-2027, 2024-2028"),
+        "current_year":      ("INTEGER", 0, 0, None, "Current academic year of the student (1, 2, 3, or 4).", "2, 3, 4"),
+        "father_name":       ("TEXT", 0, 0, None, "Father or guardian full name.", "RAMESH S, SENTHIL R"),
+        "dob":               ("TEXT", 0, 0, None, "Date of birth in DD-MM-YYYY or YYYY-MM-DD format.", "02-10-2006, 2005-03-10"),
+        "gender":            ("TEXT", 0, 0, None, "Student gender. Values: Male, Female, or empty.", "Male, Female"),
+        "blood_group":       ("TEXT", 0, 0, None, "Blood group. e.g. O+, A+, B+ve.", "O+, A+ve, B+"),
+        "aadhaar_no":        ("TEXT", 0, 0, None, "12-digit Aadhaar number (space-separated groups).", "8899 4501 5959"),
+        "student_phone":     ("TEXT", 0, 0, None, "Student primary mobile number (10 digits).", "9597833971"),
+        "parent_phone":      ("TEXT", 0, 0, None, "Parent / guardian mobile number.", "7639508757"),
+        "email":             ("TEXT", 0, 0, None, "Student email address.", "maniaasai7@email.com"),
+        "permanent_address": ("TEXT", 0, 0, None, "Student's permanent residential address.", "Kanchipuram District"),
+        "residence_type":    ("TEXT", 0, 0, None, "Day Scholar or Hosteller.", "Day Scholar, Hosteller"),
+        "qr_code_file":      ("TEXT", 0, 0, None, "QR code image filename reference.", "511523205001.jpg"),
+        "photo_file":        ("TEXT", 0, 0, None, "Photo image filename reference.", "IMG_3879.jpg"),
+    },
+    "faculty": {
+        "_type": "table",
+        "_description": "Master directory of all faculty and staff with contact and role details.",
+        "faculty_id":         ("INTEGER", 1, 0, None, "Auto-increment primary key.", "1, 2, 3"),
+        "faculty_name":       ("TEXT", 0, 0, None, "Faculty full name with title prefix. e.g. Dr., Mr., Ms.", "Dr.M.ARULARASU, Mr.J.KISHOREKUMAR"),
+        "qualification":      ("TEXT", 0, 0, None, "Educational qualification. e.g. B.E., M.E., Ph.D.", "B.E.,ME., Ph.D."),
+        "designation":        ("TEXT", 0, 0, None, "Job title. e.g. Assistant Professor, Associate Professor, Professor, HoD, Principal.", "Assistant Professor/MECH, PRINCIPAL"),
+        "department":         ("TEXT", 0, 0, None, "Department the faculty belongs to. Values: IT, CSE, MECH, MECHANICAL, ECE, EEE, AI&DS, S&H, PLACEMENT CELL.", "IT, MECHANICAL, CSE"),
+        "phone_primary":      ("TEXT", 0, 0, None, "Primary mobile/contact number.", "9791678774"),
+        "phone_secondary":    ("TEXT", 0, 0, None, "Secondary or intercom number.", "9791678774"),
+        "email":              ("TEXT", 0, 0, None, "Official college email address.", "kishorekumar@ptleecncet.com"),
+        "room_cabin_no":      ("TEXT", 0, 0, None, "Cabin or room number in college. e.g. S12, G23/A, Ground Floor.", "S12, G23/A, G02"),
+        "class_incharge_role":("TEXT", 0, 0, None, "Class teacher or proctor assignment. e.g. MECH-3YEAR, IT-II.", "MECH-3YEAR, IT-II"),
+        "permanent_address":  ("TEXT", 0, 0, None, "Faculty permanent residential address.", "Kanchipuram"),
+    },
+    "courses": {
+        "_type": "table",
+        "_description": "Anna University curriculum catalog: all subjects with credits, semester, and category.",
+        "course_code":    ("TEXT", 1, 0, None, "Anna University course code (Primary Key). e.g. CS3491, IT3401, MA3354.", "CS3491, IT3401, MA3354"),
+        "course_title":   ("TEXT", 0, 0, None, "Full course/subject name.", "Artificial Intelligence and Machine Learning"),
+        "department":     ("TEXT", 0, 0, None, "Department that offers this course.", "IT, CSE, AI&DS, S&H"),
+        "year_of_study":  ("INTEGER", 0, 0, None, "Year of study when this course is offered (1-4).", "1, 2, 3, 4"),
+        "semester":       ("INTEGER", 0, 0, None, "Semester number (1 to 8).", "1, 2, 3, 4, 5, 6, 7, 8"),
+        "regulation":     ("TEXT", 0, 0, None, "Anna University regulation year. Values: R2021, R2025.", "R2021, R2025"),
+        "category":       ("TEXT", 0, 0, None, "Course category. Values: PCC, ESC, HSMC, PEC, OEC, Mandatory.", "PCC, ESC, PEC"),
+        "course_type":    ("TEXT", 0, 0, None, "Type of course. Values: Theory, Practical, Integrated, Non-Credit.", "Theory, Practical"),
+        "lecture_hours":  ("INTEGER", 0, 0, None, "Weekly lecture hours (L).", "3, 4"),
+        "tutorial_hours": ("INTEGER", 0, 0, None, "Weekly tutorial hours (T).", "0, 1"),
+        "practical_hours":("INTEGER", 0, 0, None, "Weekly practical/lab hours (P).", "0, 2, 3"),
+        "credits":        ("REAL", 0, 0, None, "Total credits awarded for the course.", "3.0, 4.0, 1.5"),
+    },
+    "student_assessments": {
+        "_type": "table",
+        "_description": "Normalized long-format marks table for ALL internal and university exams. Each row = one student + one subject + one exam type.",
+        "assessment_id":  ("INTEGER", 1, 0, None, "Auto-increment primary key.", "1, 2, 3"),
+        "reg_no":         ("TEXT", 0, 1, "students(reg_no)", "Student register number (FK → students). Use to JOIN with students table.", "511523205001"),
+        "student_name":   ("TEXT", 0, 0, None, "Denormalized student name for faster queries.", "AATHI S"),
+        "department":     ("TEXT", 0, 0, None, "Student's department. Values: IT, CSE, AI&DS, MECH.", "IT, CSE, AI&DS"),
+        "academic_year":  ("TEXT", 0, 0, None, "Academic year string. Values: 2024-2025, 2025-2026.", "2024-2025, 2025-2026"),
+        "semester":       ("INTEGER", 0, 0, None, "Semester number for this exam (2 to 8).", "2, 3, 4, 5, 6"),
+        "exam_type":      ("TEXT", 0, 0, None, "Type of exam. Values: IAT-1, IAT-2, MODEL_EXAM, END_SEM_UNIVERSITY.", "IAT-1, IAT-2, MODEL_EXAM, END_SEM_UNIVERSITY"),
+        "exam_date":      ("TEXT", 0, 0, None, "Exam date or month. May be NULL for older records.", "2026-02, 2026-03"),
+        "course_code":    ("TEXT", 0, 1, "courses(course_code)", "Subject/course code (FK → courses). e.g. CS3491, IT3401.", "CS3491, MA3354"),
+        "course_title":   ("TEXT", 0, 0, None, "Full subject name stored redundantly for readability.", "Database Management Systems"),
+        "score_raw":      ("TEXT", 0, 0, None, "Original raw score as stored in sheet. Can be numeric ('86') or grade ('A+') or 'AB'.", "86, AB, A+, O, U"),
+        "score_numeric":  ("REAL", 0, 0, None, "Parsed numeric score (0-100). NULL when score is a letter grade (END_SEM_UNIVERSITY).", "86.0, 54.0, 100.0"),
+        "grade":          ("TEXT", 0, 0, None, "Computed letter grade. Values: O(≥90), A+(≥80), A(≥70), B+(≥60), B(≥50), C(≥45), U(<45), AB(absent).", "O, A+, A, B+, U, AB"),
+        "grade_points":   ("INTEGER", 0, 0, None, "Anna University grade points: O=10, A+=9, A=8, B+=7, B=6, C=5, U/AB=0.", "10, 9, 8, 0"),
+        "is_absent":      ("INTEGER", 0, 0, None, "Absent flag: 1 = student was absent, 0 = attended.", "0, 1"),
+        "is_arrear":      ("INTEGER", 0, 0, None, "Arrear/fail flag: 1 = failed or arrear, 0 = passed.", "0, 1"),
+        "max_marks":      ("REAL", 0, 0, None, "Maximum marks for this exam (always 100.0 currently).", "100.0"),
+        "source_sheet":   ("TEXT", 0, 0, None, "Provenance: original Excel filename and sheet. e.g. 4 th sem IAT - 2 Mark Sheet.xlsx::II IT", "IAT-2 second sem.xlsx::II IT"),
+    },
+    "attendance": {
+        "_type": "table",
+        "_description": "Subject-wise and periodic attendance records with exam eligibility status.",
+        "attendance_id":           ("INTEGER", 1, 0, None, "Auto-increment primary key.", "1, 2"),
+        "reg_no":                  ("TEXT", 0, 1, "students(reg_no)", "Student register number. Use to JOIN with students.", "511523205001"),
+        "student_name":            ("TEXT", 0, 0, None, "Student name (denormalized).", "Aasaimani T"),
+        "department":              ("TEXT", 0, 0, None, "Department. Values: IT, CSE, AI&DS.", "IT"),
+        "semester":                ("INTEGER", 0, 0, None, "Semester for which attendance is tracked.", "4, 5"),
+        "course_code":             ("TEXT", 0, 1, "courses(course_code)", "Subject code (FK → courses). NULL for periodic/batch records.", "CS3491"),
+        "course_title":            ("TEXT", 0, 0, None, "Subject name.", "Artificial Intelligence"),
+        "faculty_incharge":        ("TEXT", 0, 0, None, "Name of faculty conducting the subject.", "Faculty - IT Dept"),
+        "total_classes_conducted": ("INTEGER", 0, 0, None, "Total classes/hours held in the period.", "52, 35"),
+        "classes_attended":        ("INTEGER", 0, 0, None, "Number of classes the student attended.", "48, 28"),
+        "classes_missed":          ("INTEGER", 0, 0, None, "Number of classes missed (absent).", "4, 7"),
+        "attendance_percentage":   ("REAL", 0, 0, None, "Attendance percentage (0.0-100.0). e.g. 85.5 means 85.5%.", "92.3, 75.0, 65.5"),
+        "exam_eligibility_status": ("TEXT", 0, 0, None, "Anna University eligibility. Values: ELIGIBLE(>=75%), CONDONATION(65-75%), NOT_ELIGIBLE(<65%).", "ELIGIBLE, CONDONATION, NOT_ELIGIBLE"),
+        "tracking_period":         ("TEXT", 0, 0, None, "Date range for the attendance tracking period.", "16/7/25 to 3/9/25"),
+    },
+    "academic_regulations": {
+        "_type": "table",
+        "_description": "Institutional policies, Anna University rules, grading scales, GPA formulas, exam patterns.",
+        "rule_id":                   ("TEXT", 1, 0, None, "Unique rule identifier. e.g. INST-01, REG-01, EXAM-01, GPA-01.", "INST-01, REG-01"),
+        "category":                  ("TEXT", 0, 0, None, "Policy category. e.g. Institution Details, Exam Pattern & Assessment Split, GPA & CGPA Calculations.", "Institution Details, GPA & CGPA Calculations"),
+        "policy_parameter":          ("TEXT", 0, 0, None, "Short name for the policy being described.", "Degree Duration & Limits"),
+        "regulation_clause":         ("TEXT", 0, 0, None, "Full text of the regulation or rule from Anna University.", "B.E./B.Tech: 4 Academic Years (8 Semesters)"),
+        "exceptions_and_exemptions": ("TEXT", 0, 0, None, "Any exceptions or exemption clauses to the rule.", "Lateral entry: max 6 years"),
+        "rag_keywords":              ("TEXT", 0, 0, None, "Comma-separated keywords for semantic search routing.", "duration, gpa, attendance"),
+    },
+    "view_student_performance_summary": {
+        "_type": "view",
+        "_description": "Pre-aggregated student performance: courses evaluated, passed, arrear count, average marks, and approximate GPA. Fast alternative to joining students + student_assessments.",
+        "reg_no":                   ("TEXT", 0, 0, None, "Student register number.", "511523205001"),
+        "student_name":             ("TEXT", 0, 0, None, "Student full name.", "AATHI S"),
+        "department":               ("TEXT", 0, 0, None, "Student department.", "IT, CSE"),
+        "batch":                    ("TEXT", 0, 0, None, "Batch years.", "2023-2027"),
+        "total_courses_evaluated":  ("INTEGER", 0, 0, None, "Total distinct courses with at least one assessment.", "12, 6"),
+        "total_passed":             ("INTEGER", 0, 0, None, "Total assessments where is_arrear=0 and is_absent=0.", "10, 8"),
+        "total_arrears":            ("INTEGER", 0, 0, None, "Total assessments where is_arrear=1 or grade=U.", "2, 0"),
+        "overall_avg_marks":        ("REAL", 0, 0, None, "Average of all numeric scores across all exams.", "72.5, 85.0"),
+        "approx_gpa_points":        ("REAL", 0, 0, None, "Average of grade_points (>0) across all graded subjects.", "7.5, 8.2"),
+    },
+    "view_exam_subject_analytics": {
+        "_type": "view",
+        "_description": "Pre-aggregated subject-level analytics per exam: pass %, highest/lowest/average marks, enrolled count. Use for class-level or subject-level analysis.",
+        "academic_year":           ("TEXT", 0, 0, None, "Academic year.", "2024-2025"),
+        "semester":                ("INTEGER", 0, 0, None, "Semester number.", "4, 6"),
+        "department":              ("TEXT", 0, 0, None, "Department.", "IT, CSE"),
+        "exam_type":               ("TEXT", 0, 0, None, "Type of exam: IAT-1, IAT-2, MODEL_EXAM, END_SEM_UNIVERSITY.", "IAT-2"),
+        "course_code":             ("TEXT", 0, 0, None, "Subject course code.", "CS3491"),
+        "course_title":            ("TEXT", 0, 0, None, "Subject name.", "Artificial Intelligence"),
+        "total_students_enrolled": ("INTEGER", 0, 0, None, "Total students who appeared in this exam.", "60"),
+        "total_absent":            ("INTEGER", 0, 0, None, "Students who were absent.", "3"),
+        "total_passed":            ("INTEGER", 0, 0, None, "Students who passed (is_arrear=0, is_absent=0).", "50"),
+        "total_failed":            ("INTEGER", 0, 0, None, "Students who failed (is_arrear=1).", "10"),
+        "pass_percentage":         ("REAL", 0, 0, None, "Pass percentage = total_passed / total * 100.", "83.33"),
+        "highest_mark":            ("REAL", 0, 0, None, "Highest numeric score in this exam for this subject.", "100.0"),
+        "lowest_mark":             ("REAL", 0, 0, None, "Lowest numeric score (excluding absentees).", "5.0"),
+        "average_mark":            ("REAL", 0, 0, None, "Average numeric score (excluding absentees).", "65.4"),
+    },
+    "view_student_complete_profile": {
+        "_type": "view",
+        "_description": "360-degree student profile combining demographic data, overall attendance %, active arrears, and average marks in a single queryable view.",
+        "reg_no":                ("TEXT", 0, 0, None, "Student register number.", "511523205001"),
+        "student_name":          ("TEXT", 0, 0, None, "Student full name.", "AATHI S"),
+        "department":            ("TEXT", 0, 0, None, "Department.", "IT"),
+        "batch":                 ("TEXT", 0, 0, None, "Batch.", "2023-2027"),
+        "student_phone":         ("TEXT", 0, 0, None, "Student mobile number.", "9597833971"),
+        "email":                 ("TEXT", 0, 0, None, "Student email.", "email@example.com"),
+        "residence_type":        ("TEXT", 0, 0, None, "Day Scholar or Hosteller.", "Day Scholar"),
+        "overall_attendance_pct":("REAL", 0, 0, None, "Average attendance percentage across all subjects.", "82.5"),
+        "active_arrears":        ("INTEGER", 0, 0, None, "Total number of active arrears/failures.", "2"),
+        "avg_marks":             ("REAL", 0, 0, None, "Overall average marks across all exam types.", "68.3"),
+    },
+}
+
+
+def ingest_schema_master(conn: sqlite3.Connection):
+    """
+    Populate the schema_master table with rich metadata for all tables and views.
+    This single table is the LLM's map of the entire database.
+    """
+    print("\n--- Building Schema Master Catalog ---")
+    c = conn.cursor()
+    c.execute("DELETE FROM schema_master")  # Idempotent reset
+
+    total = 0
+    for obj_name, columns in SCHEMA_METADATA.items():
+        obj_type = columns.get("_type", "table")
+        for col_name, meta in columns.items():
+            if col_name.startswith("_"):
+                continue
+            col_type, is_pk, is_fk, fk_ref, description, samples = meta
+            c.execute("""
+            INSERT OR REPLACE INTO schema_master
+                (object_name, object_type, column_name, column_type,
+                 is_primary_key, is_foreign_key, fk_references,
+                 description, sample_values)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (obj_name, obj_type, col_name, col_type,
+                  is_pk, is_fk, fk_ref, description, samples))
+            total += 1
+
     conn.commit()
-    print(f"✓ Academic regulations populated: {loaded} records.")
+    print(f"✓ Schema master populated: {total} column entries across {len(SCHEMA_METADATA)} objects.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -845,6 +1046,7 @@ def main():
     ingest_assessments(conn)
     ingest_attendance(conn)
     ingest_regulations(conn)
+    ingest_schema_master(conn)   # ← Build the LLM context catalog
 
     c = conn.cursor()
     print("\n" + "=" * 70)
@@ -857,6 +1059,7 @@ def main():
         "student_assessments",
         "attendance",
         "academic_regulations",
+        "schema_master",
     ]
     for tbl in tables:
         c.execute(f"SELECT COUNT(*) FROM {tbl}")
