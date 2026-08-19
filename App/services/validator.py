@@ -25,7 +25,7 @@ async def validate_file(file: UploadFile):
     # -------------------------
     content = await file.read()
 
-    if len(content) > MAX_FILE_SIZE:
+    if len(content) > MAX_FILE_SIZE: #200mb max
         raise HTTPException(
             status_code=400,
             detail="File size exceeds 20 MB limit."
@@ -41,6 +41,6 @@ async def validate_file(file: UploadFile):
         )
 
     # Reset pointer after reading
-    file.file.seek(0)
+    file.file.seek(0) # why do we need this line
 
     return True
