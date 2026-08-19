@@ -9,40 +9,51 @@ from qdrant_client.models import (
     PayloadSchemaType,
 )
 
+import os
 from config import QDRANT_URL, QDRANT_API_KEY
 from services.section_parser import detect_section
 
-client = QdrantClient(
-    url=QDRANT_URL,
-    api_key=QDRANT_API_KEY,
-)
+COLLECTION_NAME = "ptlee_docs" #testing
 
-COLLECTION_NAME = "pdf-rag-chatbot"
+def _get_qdrant_client():
+    if QDRANT_URL and QDRANT_API_KEY:
+        try:
+            c = QdrantClient(
+                url=QDRANT_URL,
+                api_key=QDRANT_API_KEY,
+                check_compatibility=False,
+                timeout=5,          # ← Don't hang startup if cloud is unreachable
+            )
+            c.get_collections() # we need to see this a time
+            return c
+        except Exception as e:
+            print(f"Warning: Cloud Qdrant connection failed ({e}). Falling back to local storage './data/qdrant_db'")
+    os.makedirs("data/qdrant_db", exist_ok=True)
+    return QdrantClient(path="data/qdrant_db") #what does the qdrant client evean means  ? 
+
+client = _get_qdrant_client()
 
 # --------------------------------------------------
 # Create Collection
 # --------------------------------------------------
 
-collections = client.get_collections().collections
-
-if COLLECTION_NAME not in [c.name for c in collections]:
-
-    client.create_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(
-            size=1024,
-            distance=Distance.COSINE,
-        ),
-    )
-
 try:
+    collections = client.get_collections().collections
+    if COLLECTION_NAME not in [c.name for c in collections]:
+        client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=VectorParams(
+                size=1024,
+                distance=Distance.COSINE,
+            ),
+        )
     client.create_payload_index(
         collection_name=COLLECTION_NAME,
         field_name="filename",
         field_schema=PayloadSchemaType.KEYWORD,
     )
-except Exception:
-    pass
+except Exception as e:
+    print(f"Qdrant collection setup note: {e}")
 
 
 # --------------------------------------------------
@@ -61,10 +72,10 @@ def store_embeddings(chunks, embeddings, filename):
         section = detect_section(chunk["text"])
 
         points.append(
-            PointStruct(
+            PointStruct( # what is this ?
                 id=abs(hash(f"{filename}_{i}")),
                 vector=list(embedding),
-                payload={
+                payload={ # meta data 
                     "filename": filename,
                     "document": chunk["text"],
                     "page": chunk["page"],
@@ -76,7 +87,7 @@ def store_embeddings(chunks, embeddings, filename):
 
     print("\n========== STORING ==========\n")
 
-    for point in points[:5]:
+    for point in points[:5]: # why only 5 we are not storing anythign anywhere at all  
         print(f"ID       : {point.id}")
         print(f"Page     : {point.payload['page']}")
         print(f"Section  : {point.payload['section']}")
@@ -101,20 +112,34 @@ def store_embeddings(chunks, embeddings, filename):
 # Search Embeddings
 # --------------------------------------------------
 
-def search_embeddings(query_embedding, filename, top_k=10):
+def search_embeddings(query_embedding, filename=None, top_k=10):
+    """
+    Search the vector DB for relevant chunks.
 
-    response = client.query_points(
-        collection_name=COLLECTION_NAME,
-        query=list(query_embedding),
-        limit=top_k,
-        query_filter=Filter(
+    Args:
+        query_embedding: The embedded query vector.
+        filename:        If provided, restricts search to that document.
+                         If None, searches across ALL stored documents.
+        top_k:           Number of results to return.
+    """
+
+    # Build filter only when a specific document is requested
+    query_filter = None
+    if filename:
+        query_filter = Filter(
             must=[
                 FieldCondition(
                     key="filename",
                     match=MatchValue(value=filename),
                 )
             ]
-        ),
+        )
+
+    response = client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=list(query_embedding),
+        limit=top_k,
+        query_filter=query_filter,
     )
 
     print("\n========== RETRIEVED ==========\n")
@@ -122,6 +147,7 @@ def search_embeddings(query_embedding, filename, top_k=10):
     for i, point in enumerate(response.points, start=1):
         print(f"Result {i}")
         print("Score   :", point.score)
+        print("File    :", point.payload.get("filename"))
         print("Page    :", point.payload.get("page"))
         print("Section :", point.payload.get("section"))
         print("Chunk   :", point.payload["document"][:250])
@@ -142,10 +168,16 @@ def search_embeddings(query_embedding, filename, top_k=10):
         for point in response.points
     ]
 
+    filenames = [
+        point.payload.get("filename")
+        for point in response.points
+    ]
+
     return {
         "documents": [documents],
         "pages": pages,
         "chunk_ids": chunk_ids,
+        "filenames": filenames,
     }
 
 

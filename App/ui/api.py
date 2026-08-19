@@ -1,10 +1,11 @@
+import os
 import streamlit as st
 import requests
 
-BASE_URL = st.secrets.get(
-    "BACKEND_URL",
-    "http://127.0.0.1:8000"
-)
+try:
+    BASE_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
+except Exception:
+    BASE_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 
 def upload_pdf(uploaded_file):
