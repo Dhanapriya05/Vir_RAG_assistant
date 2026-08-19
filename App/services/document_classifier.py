@@ -1,11 +1,13 @@
-from groq import Groq
+from config import GROQ_MODEL, get_groq_client
 
-from config import GROQ_API_KEY, GROQ_MODEL
-
-client = Groq(api_key=GROQ_API_KEY)
+def get_client():
+    return get_groq_client()
 
 
 def classify_document(text):
+    client = get_client()
+    if not client:
+        return "Document"
 
     prompt = f"""
 You are an AI document classifier.
@@ -20,6 +22,7 @@ Classify the uploaded document into EXACTLY ONE of these categories:
 - User Manual
 - Invoice
 - Legal Document
+- Spreadsheet / Dataset
 - Presentation
 - Other
 
@@ -34,14 +37,17 @@ Document:
 {text[:4000]}
 """
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    return response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Classification error: {e}")
+        return "Document"

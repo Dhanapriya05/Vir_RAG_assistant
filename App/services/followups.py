@@ -1,11 +1,13 @@
-from groq import Groq
+from config import GROQ_MODEL, get_groq_client
 
-from config import GROQ_API_KEY, GROQ_MODEL
-
-client = Groq(api_key=GROQ_API_KEY)
+def get_client():
+    return get_groq_client()
 
 
 def generate_followup_questions(question, answer):
+    client = get_client()
+    if not client:
+        return []
 
     prompt = f"""
 You are an expert AI document assistant.
@@ -31,26 +33,26 @@ Rules:
 - Return questions only.
 """
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        questions = response.choices[0].message.content.strip().split("\n")
+
+        questions = [
+            q.strip("- ").strip()
+            for q in questions
+            if q.strip()
         ]
-    )
 
-    questions = response.choices[0].message.content.strip().split("\n")
-
-    questions = [
-        q.strip("- ").strip()
-        for q in questions
-        if q.strip()
-    ]
-
-
-# Keep only the first four valid questions
-    questions = questions[:4]
-
-    return questions
+        return questions[:4]
+    except Exception as e:
+        print(f"Followup generation error: {e}")
+        return []

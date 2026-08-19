@@ -1,13 +1,11 @@
 import json
+from config import GROQ_MODEL, get_groq_client
 
-from groq import Groq
-from config import GROQ_API_KEY, GROQ_MODEL
-
-client = Groq(api_key=GROQ_API_KEY)
+def get_client():
+    return get_groq_client()
 
 
 def analyze_document(text):
-
     print("Analyzing document...")
 
     prompt = f"""
@@ -27,6 +25,7 @@ Choose EXACTLY ONE:
 - User Manual
 - Legal Document
 - Invoice
+- Spreadsheet / Dataset
 - Presentation
 - Other
 
@@ -45,12 +44,12 @@ Return ONLY valid JSON.
 Example:
 
 {{
-  "document_type": "Research Paper",
+  "document_type": "Report",
   "suggested_questions": [
-    "Summarize this paper.",
-    "What problem does it solve?",
-    "Explain the proposed method.",
-    "What are the key contributions?"
+    "Summarize the key findings in this document.",
+    "What are the main statistics and numbers?",
+    "What guidelines or policies are specified?",
+    "What are the most important conclusions?"
   ]
 }}
 
@@ -59,21 +58,42 @@ Document:
 {text[:5000]}
 """
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        response_format={"type": "json_object"}
-    )
+    client = get_client()
+    if not client:
+        return {
+            "document_type": "Document",
+            "suggested_questions": [
+                "Summarize this document.",
+                "What are the key points?",
+                "What important details are included?",
+                "What are the main takeaways?"
+            ]
+        }
 
-    result = json.loads(
-        response.choices[0].message.content
-    )
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={"type": "json_object"}
+        )
 
-    print(result)
-
-    return result
+        result = json.loads(
+            response.choices[0].message.content
+        )
+        return result
+    except Exception as e:
+        print(f"Document analysis fallback: {e}")
+        return {
+            "document_type": "Document",
+            "suggested_questions": [
+                "Summarize this document.",
+                "What are the key points?",
+                "What important details are included?",
+                "What are the main takeaways?"
+            ]
+        }

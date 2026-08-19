@@ -1,13 +1,19 @@
-from groq import Groq
+from config import GROQ_MODEL, get_groq_client
 
-from config import GROQ_API_KEY, GROQ_MODEL
-
-client = Groq(api_key=GROQ_API_KEY)
+def get_client():
+    return get_groq_client()
 
 
 def generate_suggested_questions(text):
-
     print("Generating suggested questions...")
+    client = get_client()
+    if not client:
+        return [
+            "Summarize this document.",
+            "What are the main topics?",
+            "What important data is included?",
+            "What are the key conclusions?"
+        ]
 
     prompt = f"""
 You are an expert AI document analyst.
@@ -15,7 +21,7 @@ You are an expert AI document analyst.
 A user has just uploaded a document.
 
 First understand what type of document this is
-(e.g. Resume, Research Paper, Report, Notes, Book, Manual, Legal Document, Invoice).
+(e.g. Resume, Research Paper, Report, Notes, Book, Manual, Legal Document, Invoice, Spreadsheet).
 
 Then generate EXACTLY FOUR questions that would help a user understand and explore this document.
 
@@ -42,22 +48,31 @@ Document:
 {text[:6000]}
 """
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        questions = response.choices[0].message.content.strip().split("\n")
+
+        questions = [
+            q.strip().lstrip("0123456789.-• ")
+            for q in questions
+            if q.strip()
         ]
-    )
 
-    questions = response.choices[0].message.content.strip().split("\n")
-
-    questions = [
-        q.strip().lstrip("0123456789.-• ")
-        for q in questions
-        if q.strip()
-    ]
-
-    return questions[:4]
+        return questions[:4]
+    except Exception as e:
+        print(f"Question generation fallback: {e}")
+        return [
+            "Summarize this document.",
+            "What are the main topics?",
+            "What important data is included?",
+            "What are the key conclusions?"
+        ]
