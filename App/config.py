@@ -45,6 +45,8 @@ ALLOWED_EXTENSIONS = {
     "xlsx",
     "xls"
 }
+#csv is there yet u can't add it in there 
+
 
 # Support up to 200MB files
 MAX_FILE_SIZE = 200 * 1024 * 1024

@@ -54,7 +54,7 @@ def process_question(question):
 
     response = ask_question(
         question=question,
-        filename=st.session_state.document_name,
+        filename="",                           # "" → backend searches ALL stored documents
         history=st.session_state.messages[-6:]
     )
 
@@ -94,8 +94,13 @@ with st.sidebar:
     st.subheader("Upload Document")
 
     uploaded_file = st.file_uploader(
+<<<<<<< HEAD
         "Choose a document",
         type=["pdf", "docx", "txt", "csv"]
+=======
+        "Choose a PDF",
+        type=["pdf","csv","docx"]
+>>>>>>> 86345c40f3e67855023c238de48c970523a7f696
     )
 
     if uploaded_file is not None:
@@ -150,7 +155,7 @@ with st.sidebar:
 
     if st.session_state.document_uploaded:
 
-        st.success("🟢 Ready")
+        st.success("🟢 Document indexed this session")
 
         st.write(
             f"📄 **{st.session_state.document_name}**"
@@ -162,7 +167,7 @@ with st.sidebar:
 
     else:
 
-        st.warning("No document uploaded")
+        st.info("🟡 Using knowledge from past uploads")
 
     # ------------------------------------------
     # Suggested Questions
@@ -244,8 +249,7 @@ if (
 # --------------------------------------------------
 
 prompt = st.chat_input(
-    "Ask anything about your document...",
-    disabled=not st.session_state.document_uploaded
+    "Ask anything...",
 )
 
 if prompt:

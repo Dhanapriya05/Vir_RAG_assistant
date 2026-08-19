@@ -1,74 +1,68 @@
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    VectorParams,
-    PointStruct,
-    Filter,
-    FieldCondition,
-    MatchValue,
-    PayloadSchemaType,
-)
-
 import os
+from qdrant_client import QdrantClient
+from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
+from services.section_detector import detect_section
 from config import QDRANT_URL, QDRANT_API_KEY
-from services.section_parser import detect_section
 
 COLLECTION_NAME = "pdf-rag-chatbot"
+VECTOR_SIZE = 1024
 
-def _get_qdrant_client():
-    if QDRANT_URL and QDRANT_API_KEY:
+_qdrant_client = None
+
+
+def get_client():
+    global _qdrant_client
+    if _qdrant_client is None:
         try:
-            c = QdrantClient(
-                url=QDRANT_URL,
-                api_key=QDRANT_API_KEY,
-                check_compatibility=False,
-                timeout=5,
-            )
-            c.get_collections()
-            return c
+            if QDRANT_URL and QDRANT_API_KEY:
+                _qdrant_client = QdrantClient(
+                    url=QDRANT_URL,
+                    api_key=QDRANT_API_KEY,
+                    timeout=30,
+                )
+            elif QDRANT_URL:
+                _qdrant_client = QdrantClient(url=QDRANT_URL, timeout=30)
+            else:
+                _qdrant_client = QdrantClient(path="./data/qdrant_db")
         except Exception as e:
             print(f"Warning: Cloud Qdrant connection failed ({e}). Falling back to local storage './data/qdrant_db'")
-    os.makedirs("data/qdrant_db", exist_ok=True)
-    return QdrantClient(path="data/qdrant_db")
+            _qdrant_client = QdrantClient(path="./data/qdrant_db")
+    return _qdrant_client
 
-client = _get_qdrant_client()
 
-# --------------------------------------------------
-# Create Collection
-# --------------------------------------------------
+def init_collection():
+    client = get_client()
+    try:
+        collections = client.get_collections().collections
+        exists = any(c.name == COLLECTION_NAME for c in collections)
+        if not exists:
+            client.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=VectorParams(
+                    size=VECTOR_SIZE,
+                    distance=Distance.COSINE
+                )
+            )
+            print(f"Created Qdrant collection: {COLLECTION_NAME}")
+    except Exception as e:
+        print(f"Qdrant collection setup note: {e}")
 
+
+# Initialize collection on import
 try:
-    collections = client.get_collections().collections
-    if COLLECTION_NAME not in [c.name for c in collections]:
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(
-                size=1024,
-                distance=Distance.COSINE,
-            ),
-        )
-    client.create_payload_index(
-        collection_name=COLLECTION_NAME,
-        field_name="filename",
-        field_schema=PayloadSchemaType.KEYWORD,
-    )
-except Exception as e:
-    print(f"Qdrant collection setup note: {e}")
+    init_collection()
+except Exception:
+    pass
 
-
-# --------------------------------------------------
-# Store Embeddings
-# --------------------------------------------------
 
 def store_embeddings(chunks, embeddings, filename):
+    client = get_client()
     print("Chunks received by store_embeddings:", len(chunks))
     print("Embeddings received by store_embeddings:", len(embeddings))
 
     points = []
-
     for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
         section = detect_section(chunk["text"])
-
         points.append(
             PointStruct(
                 id=abs(hash(f"{filename}_{i}")),
@@ -108,10 +102,6 @@ def store_embeddings(chunks, embeddings, filename):
     return len(points)
 
 
-# --------------------------------------------------
-# Search Embeddings
-# --------------------------------------------------
-
 def search_embeddings(query_embedding, filename=None, top_k=10):
     query_filter = None
     if filename and filename.strip():
@@ -119,70 +109,62 @@ def search_embeddings(query_embedding, filename=None, top_k=10):
             must=[
                 FieldCondition(
                     key="filename",
-                    match=MatchValue(value=filename.strip()),
+                    match=MatchValue(value=filename)
                 )
             ]
         )
 
+    client = get_client()
     try:
-        response = client.query_points(
+        results = client.search(
             collection_name=COLLECTION_NAME,
-            query=list(query_embedding),
-            limit=top_k,
+            query_vector=list(query_embedding),
             query_filter=query_filter,
+            limit=top_k,
+            with_payload=True
         )
     except Exception as e:
         print(f"Error querying Qdrant: {e}")
-        return {
-            "documents": [[]],
-            "pages": [],
-            "chunk_ids": [],
-            "sources": [],
-        }
+        return {"documents": [[]], "sources": []}
+
+    retrieved_docs = []
+    sources = []
 
     print("\n========== RETRIEVED FROM QDRANT ==========\n")
-    sources = []
-    documents = []
-    pages = []
-    chunk_ids = []
 
-    for i, point in enumerate(response.points, start=1):
-        doc_text = point.payload.get("document", "")
-        doc_name = point.payload.get("filename", "")
-        page_val = point.payload.get("page", 1)
-        sec_val = point.payload.get("section", "Section")
-        score = getattr(point, "score", 0.0)
+    for i, result in enumerate(results, start=1):
+        doc_text = result.payload.get("document", "")
+        doc_name = result.payload.get("filename", "Unknown")
+        page_val = result.payload.get("page", 1)
+        section_val = result.payload.get("section", "Unknown")
+        score = result.score
+
+        retrieved_docs.append(doc_text)
+
+        source_info = {
+            "label": f"{doc_name} (p.{page_val})",
+            "document": doc_name,
+            "page": page_val,
+            "section": section_val,
+            "snippet": doc_text[:200] + "...",
+            "score": round(score, 3),
+        }
+        sources.append(source_info)
 
         print(f"Result {i} | File: {doc_name} | Score: {score:.3f} | Page: {page_val}")
         print("Snippet:", doc_text[:120])
         print("-" * 50)
 
-        documents.append(doc_text)
-        pages.append(page_val)
-        chunk_ids.append(point.payload.get("chunk_id", i))
-
-        sources.append({
-            "label": f"{doc_name} (p.{page_val})" if str(page_val).isdigit() else f"{doc_name} ({page_val})",
-            "document": doc_name,
-            "page": page_val,
-            "section": sec_val,
-            "snippet": doc_text[:280] + "..." if len(doc_text) > 280 else doc_text,
-            "score": round(float(score), 3) if score else None,
-        })
+    print()
 
     return {
-        "documents": [documents],
-        "pages": pages,
-        "chunk_ids": chunk_ids,
+        "documents": [retrieved_docs],
         "sources": sources,
     }
 
 
-# --------------------------------------------------
-# Delete Document Embeddings
-# --------------------------------------------------
-
-def delete_document_embeddings(filename: str):
+def delete_document_embeddings(filename):
+    client = get_client()
     try:
         client.delete(
             collection_name=COLLECTION_NAME,
@@ -190,7 +172,7 @@ def delete_document_embeddings(filename: str):
                 must=[
                     FieldCondition(
                         key="filename",
-                        match=MatchValue(value=filename),
+                        match=MatchValue(value=filename)
                     )
                 ]
             ),
@@ -202,19 +184,16 @@ def delete_document_embeddings(filename: str):
         return False
 
 
-# --------------------------------------------------
-# Get Document Preview / Chunks
-# --------------------------------------------------
-
-def get_document_preview(filename, limit=10):
+def get_document_preview(filename, limit=20):
+    client = get_client()
     try:
-        response = client.scroll(
+        points, _ = client.scroll(
             collection_name=COLLECTION_NAME,
             scroll_filter=Filter(
                 must=[
                     FieldCondition(
                         key="filename",
-                        match=MatchValue(value=filename),
+                        match=MatchValue(value=filename)
                     )
                 ]
             ),
@@ -222,19 +201,14 @@ def get_document_preview(filename, limit=10):
             with_payload=True,
             with_vectors=False,
         )
-
-        points = response[0]
-        points.sort(key=lambda point: point.payload.get("chunk_id", 0))
-
-        chunks = [
-            {
-                "id": p.payload.get("chunk_id", 0),
+        chunks = []
+        for p in points:
+            chunks.append({
+                "id": p.id,
                 "page": p.payload.get("page", 1),
-                "section": p.payload.get("section", "Section"),
+                "section": p.payload.get("section", "Unknown"),
                 "text": p.payload.get("document", ""),
-            }
-            for p in points
-        ]
+            })
         return chunks
     except Exception as e:
         print(f"Error scrolling document chunks for {filename}: {e}")
@@ -242,8 +216,9 @@ def get_document_preview(filename, limit=10):
 
 
 def count_all_chunks():
+    client = get_client()
     try:
         info = client.get_collection(collection_name=COLLECTION_NAME)
-        return info.points_count
+        return info.points_count or 0
     except Exception:
         return 0

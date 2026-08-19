@@ -2,6 +2,7 @@ import React from "react";
 import { ChatProvider } from "@/context/ChatContext";
 import AboutCollege from "@/components/AboutCollege";
 import CampusFeatures from "@/components/CampusFeatures";
+import CampusMapNavigator from "@/components/CampusMapNavigator";
 import ChatWindow from "@/components/ChatWindow";
 import FAQPanel from "@/components/FAQPanel";
 import Footer from "@/components/Footer";
@@ -18,6 +19,7 @@ export default function HomePage() {
           <Hero />
           <ChatWindow />
           <SuggestionCards />
+          <CampusMapNavigator />
           <CampusFeatures />
           <FAQPanel />
           <AboutCollege />

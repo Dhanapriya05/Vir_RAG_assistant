@@ -28,7 +28,6 @@ async function callChatBackend(payload) {
       }
     } catch (e) {
       lastError = e;
-      // try next candidate
     }
   }
 
@@ -58,22 +57,16 @@ export async function askCollegeAI(question, history = [], filename = "") {
     console.error("Failed to reach FastAPI RAG backend:", err);
     return {
       found: false,
-      content: `### Connection to RAG Backend Failed\n\nCould not connect to the Vir RAG Backend.\n\nPlease start the backend server:\n\`\`\`bash\ncd APP\npython run_server.py\n\`\`\`\n\nOnce the backend is running, questions will be answered based on your uploaded Knowledge Base documents.`,
+      content: `### Connection to Campus Assistant Failed\n\nCould not connect to the assistant backend.\n\nPlease start the backend server:\n\`\`\`bash\ncd APP\npython run_server.py\n\`\`\``,
       source: null,
       sources: [],
-      followups: ["How do I start the backend server?", "How do I upload knowledge base files?"],
+      followups: ["Where is the IT lab?", "What courses are available?"],
     };
   }
 }
 
 export const welcomeMessage = {
   found: true,
-  content: `Hello! 👋 I'm your **Vir RAG Assistant**.
-
-I answer questions strictly based on the real files you upload (PDF, Excel, CSV) to the **Knowledge Base** and campus navigation.
-
-👉 **To get started:**
-1. Click **Knowledge Base** in the footer to upload your PDF, .xlsx, .xls, or CSV files.
-2. Once indexed, ask any questions here and receive accurate, grounded answers with citations!`,
+  content: `How can I help you today Sir/Mam?`,
   source: null,
 };

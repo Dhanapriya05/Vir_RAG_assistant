@@ -1,6 +1,7 @@
+import os
+import sys
 from fastapi import APIRouter
 from pydantic import BaseModel
-import os
 
 from services.retriever import retrieve_context
 from services.vectordb import search_embeddings
@@ -30,9 +31,9 @@ You have access to these tools:
 RULES:
 - Always call the appropriate tool to answer navigation questions -- never guess or invent room locations.
 - Present directions in a clear, friendly, step-by-step format.
-- If the user asks about multiple locations, call the tools for each.
+- If the user asks where they are or where to go, guide them politely.
 - If a room is not found, suggest similar alternatives using list_rooms.
-- Keep responses concise and helpful.
+- Keep responses concise, clear, and helpful.
 """
 
 
@@ -72,7 +73,6 @@ async def chat(request: ChatRequest):
         # ------------------------------------
         print(f"\n[Chat] Document RAG path for query: {request.question}")
 
-        # Check if any documents exist in uploads or vector database
         uploaded_files = os.listdir(UPLOAD_FOLDER) if os.path.exists(UPLOAD_FOLDER) else []
         has_files = len(uploaded_files) > 0
 
@@ -105,7 +105,7 @@ async def chat(request: ChatRequest):
             if not has_files:
                 return {
                     "question": request.question,
-                    "answer": "No documents are currently uploaded to the Knowledge Base. Please go to the **Knowledge Base** page (`/knowledge-base`) to upload your PDF, Excel (.xlsx, .xls), or CSV files, and I will answer questions based strictly on your uploaded files.",
+                    "answer": "No documents are currently uploaded to the Knowledge Base. Please go to the **Knowledge Base** page (`/knowledge-base`) to upload your PDF, Excel (.xlsx, .xls), or CSV files.",
                     "followups": ["How do I upload files to the Knowledge Base?", "Where can I find the Knowledge Base link?"],
                     "source": "document",
                     "sources": [],
@@ -113,8 +113,8 @@ async def chat(request: ChatRequest):
             else:
                 return {
                     "question": request.question,
-                    "answer": "I couldn't find relevant information in the uploaded knowledge base documents for your question. Please try rephrasing your question or verify that the document contains this topic.",
-                    "followups": ["What documents are uploaded?", "Can you summarize the uploaded files?"],
+                    "answer": "I couldn't find specific information regarding your question in the college records. Please rephrase or ask about courses, departments, or facilities.",
+                    "followups": ["What courses are offered?", "What facilities are available?"],
                     "source": "document",
                     "sources": [],
                 }
@@ -150,7 +150,7 @@ async def chat(request: ChatRequest):
         print(f"[Chat Endpoint Error]: {e}")
         return {
             "question": request.question,
-            "answer": f"Error processing query: {e}",
+            "answer": f"Unable to process query at the moment: {e}",
             "followups": [],
             "source": "error",
             "sources": [],

@@ -15,7 +15,7 @@ function AIIcon() {
 }
 
 export default function ChatMessage({ message }) {
-  const { clearChat, setActiveSource } = useChat();
+  const { clearChat } = useChat();
   const [speaking, setSpeaking] = useState(false);
   const speakRef = useRef(null);
 
@@ -73,16 +73,6 @@ export default function ChatMessage({ message }) {
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Try another question
-            </button>
-          )}
-
-          {/* source label */}
-          {message.source && !message.streaming && (
-            <button
-              onClick={() => setActiveSource(message.source)}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-slate-100 px-2.5 py-1.5 rounded-full transition-colors"
-            >
-              📄 {message.source.label}
             </button>
           )}
         </div>

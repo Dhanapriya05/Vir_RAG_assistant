@@ -14,13 +14,29 @@ const colorMap = {
 
 export default function SuggestionCards() {
   const { sendMessage } = useChat();
+
+  const handleCardClick = (card) => {
+    if (card.isMap) {
+      const navEl = document.getElementById("campus-map-navigator");
+      if (navEl) {
+        navEl.scrollIntoView({ behavior: "smooth" });
+        setTimeout(() => {
+          const input = navEl.querySelector("input");
+          input?.focus();
+        }, 400);
+        return;
+      }
+    }
+    sendMessage(card.query);
+  };
+
   return (
     <section className="mt-10">
       <div className="text-center mb-6">
         <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900">
           Explore Your <span className="text-gradient-college">College</span>
         </h2>
-        <p className="text-slate-500 mt-1.5">Tap a card to ask the AI instantly</p>
+        <p className="text-slate-500 mt-1.5">Tap a card to ask the AI or find directions instantly</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {suggestionCards.map((card, i) => (
@@ -31,7 +47,7 @@ export default function SuggestionCards() {
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.05 }}
             whileHover={{ y: -4 }}
-            onClick={() => sendMessage(card.query)}
+            onClick={() => handleCardClick(card)}
             className="group text-left bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all"
           >
             <div

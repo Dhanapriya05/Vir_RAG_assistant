@@ -223,6 +223,7 @@ def _tool_get_room_info(room_id: str) -> str:
 # ---------------------------------------------------------------------------
 # Central dispatcher — called by tool_caller.py
 # ---------------------------------------------------------------------------
+#so we have three tools 
 
 TOOL_EXECUTORS = {
     "find_path": lambda args: _tool_find_path(args["source"], args["destination"]),
