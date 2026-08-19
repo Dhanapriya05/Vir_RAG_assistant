@@ -1,0 +1,33 @@
+P.T. LEE CNCET - ANNA UNIVERSITY GPA & CGPA AUTOMATED CALCULATOR,,,,,,,
+Automated Calculation Engine for Semester GPA (SGPA) and Cumulative CGPA with Working Excel Formulas,,,,,,,
+,,,,,,,
+ANNA UNIVERSITY GPA / CGPA FORMULA SPECIFICATIONS:,,,,,,,
+Semester GPA (SGPA) = Σ (Credits [Ci] × Grade Point [Gi]) / Σ (Credits [Ci]),,,,,,,
+Cumulative CGPA = Σ (Semester Total Credit Points [Si]) / Σ (Total Credits Across All Semesters),,,,,,,
+,,,,,,,
+SEMESTER CALCULATOR (SAMPLE ACTIVE SEMESTER),,,,,,,
+,,,,,,,
+Course Code,Course Title,Course Credits (Ci),Total Marks Scored (100),Letter Grade,Grade Point (Gi),Credit Points Earned (Ci × Gi),Pass/Arrear Status
+CS3491,Artificial Intelligence and Machine Learning,4,88,A+,9,36,PASS
+CS3492,Database Management Systems,3,82,A+,9,27,PASS
+IT3401,Web Essentials (Full Stack Web Lab),4,94,O,10,40,PASS
+CS3451,Introduction to Operating Systems,3,78,A,8,24,PASS
+CS3452,Theory of Computation,3,72,A,8,24,PASS
+CS3461,Operating Systems Laboratory,1.5,90,A+,9,13.5,PASS
+CS3481,DBMS Laboratory,1.5,95,O,10,15,PASS
+Total Semester Summary,,20,,,,179.5,
+Calculated Semester GPA (SGPA),,,,,,8.975,
+,,,,,,,
+CUMULATIVE CGPA RECORD (SEMESTER 1 TO SEMESTER 8),,,,,,,
+,,,,,,,
+Semester,Credits Registered,Credits Earned,SGPA Earned,Credit Points (Credits × SGPA),Anna University Classification Standing,,
+Semester 1,19,19,8.5,161.5,First Class with Distinction,,
+Semester 2,21,21,8.7,182.7,First Class with Distinction,,
+Semester 3,22,22,8.85,194.7,First Class with Distinction,,
+Semester 4,20,20,9.05,181,First Class with Distinction,,
+Semester 5,21,21,8.6,180.6,First Class with Distinction,,
+Semester 6,20,20,8.9,178,First Class with Distinction,,
+Semester 7,21,21,9.15,192.15,First Class with Distinction,,
+Semester 8,18,18,9.3,167.4,First Class with Distinction,,
+Total Cumulative Credits,162,162,,1438.0500000000002,,,
+FINAL OVERALL CGPA,,,,8.876851851851853,FIRST CLASS WITH DISTINCTION (>= 8.50 CGPA),,

@@ -1,0 +1,51 @@
+P.T. LEE CNCET - DEPARTMENT OF INFORMATION TECHNOLOGY (B.TECH IT) & CORE ENGINEERING CURRICULUM,,,,,,,,,,,,,
+Anna University Regulation 2021 (R2021) CBCS Curriculum & Course Matrix,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+Course Code,Course Title / Subject Name,Department,Year,Semester,Category,Course Type,Lecture (L),Tutorial (T),Practical (P),Credits (C),Internal Marks,External Marks,Total Marks
+IP3151,Induction Programme,S&H,Year 1,Semester 1,Mandatory,Non-Credit,0,0,0,0,100,0,100
+HS3151,Professional English - I,S&H,Year 1,Semester 1,Humanities,Theory,3,0,0,3,40,60,100
+MA3151,Matrices and Calculus,S&H,Year 1,Semester 1,Basic Science,Theory,3,1,0,4,40,60,100
+PH3151,Engineering Physics,S&H,Year 1,Semester 1,Basic Science,Theory,3,0,0,3,40,60,100
+CY3151,Engineering Chemistry,S&H,Year 1,Semester 1,Basic Science,Theory,3,0,0,3,40,60,100
+GE3151,Problem Solving and Python Programming,CSE/IT,Year 1,Semester 1,Engineering Science,Theory,3,0,0,3,40,60,100
+GE3152,Heritage of Tamils (தமிழர் மரபு),S&H,Year 1,Semester 1,Humanities,Theory,1,0,0,1,40,60,100
+GE3171,Problem Solving and Python Programming Laboratory,CSE/IT,Year 1,Semester 1,Engineering Science,Practical,0,0,4,2,60,40,100
+BS3171,Physics and Chemistry Laboratory,S&H,Year 1,Semester 1,Basic Science,Practical,0,0,4,2,60,40,100
+HS3251,Professional English - II,S&H,Year 1,Semester 2,Humanities,Theory,2,0,0,2,40,60,100
+MA3251,Statistics and Numerical Methods,S&H,Year 1,Semester 2,Basic Science,Theory,3,1,0,4,40,60,100
+PH3256,Physics for Information Science,S&H,Year 1,Semester 2,Basic Science,Theory,3,0,0,3,40,60,100
+BE3251,Basic Electrical and Electronics Engineering,EEE,Year 1,Semester 2,Engineering Science,Theory,3,0,0,3,40,60,100
+GE3251,Engineering Graphics,Mech,Year 1,Semester 2,Engineering Science,Theory + Design,2,0,4,4,40,60,100
+CS3251,Programming in C,CSE/IT,Year 1,Semester 2,Professional Core,Theory,3,0,0,3,40,60,100
+GE3252,Tamils and Technology (தமிழரும் தொழில்நுட்பமும்),S&H,Year 1,Semester 2,Humanities,Theory,1,0,0,1,40,60,100
+GE3271,Engineering Practices Laboratory,Mech/EEE,Year 1,Semester 2,Engineering Science,Practical,0,0,4,2,60,40,100
+CS3271,Programming in C Laboratory,CSE/IT,Year 1,Semester 2,Professional Core,Practical,0,0,4,2,60,40,100
+MA3354,Discrete Mathematics,S&H,Year 2,Semester 3,Basic Science,Theory,3,1,0,4,40,60,100
+CS3351,Digital Principles and Computer Organization,CSE/IT,Year 2,Semester 3,Engineering Science,Theory,3,0,2,4,40,60,100
+CS3352,Foundations of Data Science,IT,Year 2,Semester 3,Professional Core,Theory,3,0,0,3,40,60,100
+CD3291,Data Structures and Algorithms,IT,Year 2,Semester 3,Professional Core,Theory,3,0,0,3,40,60,100
+CS3391,Object Oriented Programming (Java),IT,Year 2,Semester 3,Professional Core,Theory,3,0,0,3,40,60,100
+CD3281,Data Structures and Algorithms Laboratory,IT,Year 2,Semester 3,Professional Core,Practical,0,0,4,2,60,40,100
+CS3361,Data Science Laboratory,IT,Year 2,Semester 3,Professional Core,Practical,0,0,4,2,60,40,100
+CS3381,Object Oriented Programming Laboratory,IT,Year 2,Semester 3,Professional Core,Practical,0,0,3,1.5,60,40,100
+CS3452,Theory of Computation,IT,Year 2,Semester 4,Professional Core,Theory,3,0,0,3,40,60,100
+CS3491,Artificial Intelligence and Machine Learning,IT,Year 2,Semester 4,Professional Core,Theory + Lab,3,0,2,4,40,60,100
+CS3492,Database Management Systems,IT,Year 2,Semester 4,Professional Core,Theory,3,0,0,3,40,60,100
+IT3401,Web Essentials (Full Stack Web Lab),IT,Year 2,Semester 4,Professional Core,Theory + Lab,3,0,2,4,40,60,100
+CS3451,Introduction to Operating Systems,IT,Year 2,Semester 4,Professional Core,Theory,3,0,0,3,40,60,100
+CS3461,Operating Systems Laboratory,IT,Year 2,Semester 4,Professional Core,Practical,0,0,3,1.5,60,40,100
+CS3481,Database Management Systems Laboratory,IT,Year 2,Semester 4,Professional Core,Practical,0,0,3,1.5,60,40,100
+CS3591,Computer Networks,IT,Year 3,Semester 5,Professional Core,Theory + Lab,3,0,2,4,40,60,100
+IT3501,Full Stack Web Development,IT,Year 3,Semester 5,Professional Core,Theory + Lab,3,0,2,4,40,60,100
+CS3551,Distributed Computing & Cloud Architecture,IT,Year 3,Semester 5,Professional Core,Theory,3,0,0,3,40,60,100
+CCS334,Big Data Analytics (Professional Elective I),IT,Year 3,Semester 5,Professional Elective,Theory,3,0,0,3,40,60,100
+CCS341,Cyber Security & Digital Forensics (PE II),IT,Year 3,Semester 5,Professional Elective,Theory,3,0,0,3,40,60,100
+IT3681,Mobile Application Development Laboratory,IT,Year 3,Semester 6,Professional Core,Practical,0,0,4,2,60,40,100
+IT3601,Embedded Systems and Internet of Things (IoT),IT,Year 3,Semester 6,Professional Core,Theory + Lab,3,0,2,4,40,60,100
+CCS370,UI/UX Design & Prototyping (PE III),IT,Year 3,Semester 6,Professional Elective,Theory,3,0,0,3,40,60,100
+IT3611,Mini Project / Industrial Internship Training,IT,Year 3,Semester 6,Project Work,Practical,0,0,4,2,100,0,100
+GE3791,Human Values and Ethics,S&H,Year 4,Semester 7,Humanities,Theory,2,0,0,2,40,60,100
+OEC351,Open Elective - Renewable Energy Sources,EEE/Mech,Year 4,Semester 7,Open Elective,Theory,3,0,0,3,40,60,100
+IT3711,Summer Internship / Industrial Training,IT,Year 4,Semester 7,Project Work,Practical,0,0,4,2,100,0,100
+IT3712,Project Work - Phase I,IT,Year 4,Semester 7,Project Work,Practical,0,0,6,3,60,40,100
+IT3811,Project Work - Phase II,IT,Year 4,Semester 8,Project Work,Practical,0,0,20,10,60,40,100

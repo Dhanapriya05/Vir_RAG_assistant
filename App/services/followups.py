@@ -4,7 +4,7 @@ from config import GROQ_API_KEY, GROQ_MODEL
 
 client = Groq(api_key=GROQ_API_KEY)
 
-
+# we might need to change this 
 def generate_followup_questions(question, answer):
 
     prompt = f"""

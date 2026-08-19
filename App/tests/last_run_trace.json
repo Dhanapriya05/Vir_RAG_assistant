@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-08-18T21:26:40.480633",
+  "run_at": "2026-08-19T09:47:25.097795",
   "summary": {
     "router": {
       "passed": 10,
@@ -25,16 +25,16 @@
   "overall_pct": 96,
   "trace": [
     {
-      "timestamp": "2026-08-18T21:24:32.570276",
+      "timestamp": "2026-08-19T09:45:54.265630",
       "step": "ROUTER",
       "question": "How many students are in the 2yr batch?",
       "expected": "COMPUTE",
       "got": "COMPUTE",
       "passed": true,
-      "ms": 10
+      "ms": 2
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570427",
+      "timestamp": "2026-08-19T09:45:54.265889",
       "step": "ROUTER",
       "question": "What is the average attendance percentage?",
       "expected": "COMPUTE",
@@ -43,7 +43,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570514",
+      "timestamp": "2026-08-19T09:45:54.266034",
       "step": "ROUTER",
       "question": "total number of female students",
       "expected": "COMPUTE",
@@ -52,7 +52,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570603",
+      "timestamp": "2026-08-19T09:45:54.266174",
       "step": "ROUTER",
       "question": "highest marks in 4th sem IT?",
       "expected": "COMPUTE",
@@ -61,7 +61,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570685",
+      "timestamp": "2026-08-19T09:45:54.266311",
       "step": "ROUTER",
       "question": "who has the lowest attendance?",
       "expected": "COMPUTE",
@@ -70,7 +70,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570757",
+      "timestamp": "2026-08-19T09:45:54.266443",
       "step": "ROUTER",
       "question": "Tell me about Aathi S",
       "expected": "LOOKUP",
@@ -79,7 +79,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570830",
+      "timestamp": "2026-08-19T09:45:54.266572",
       "step": "ROUTER",
       "question": "What is the blood group of ABARNA?",
       "expected": "LOOKUP",
@@ -88,7 +88,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570904",
+      "timestamp": "2026-08-19T09:45:54.266705",
       "step": "ROUTER",
       "question": "Describe the 5th sem result for Abi P",
       "expected": "LOOKUP",
@@ -97,7 +97,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.570965",
+      "timestamp": "2026-08-19T09:45:54.266822",
       "step": "ROUTER",
       "question": "who is the student with highest marks and describe them",
       "expected": "HYBRID",
@@ -106,7 +106,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:32.571020",
+      "timestamp": "2026-08-19T09:45:54.266937",
       "step": "ROUTER",
       "question": "find top student and explain their profile",
       "expected": "HYBRID",
@@ -115,7 +115,7 @@
       "ms": 0
     },
     {
-      "timestamp": "2026-08-18T21:24:34.095628",
+      "timestamp": "2026-08-19T09:45:55.236219",
       "step": "SQL_ENGINE",
       "question": "How many rows are in the student_2yr table?",
       "sql_generated": "SELECT COUNT(*) FROM \"student_2yr_ALL_FILES_COMBINED\"",
@@ -131,10 +131,10 @@
         "student_3yr_All_Data",
         "student_4yr_Sheet1"
       ],
-      "ms": 1324
+      "ms": 942
     },
     {
-      "timestamp": "2026-08-18T21:24:35.033080",
+      "timestamp": "2026-08-19T09:45:55.839223",
       "step": "SQL_ENGINE",
       "question": "How many rows are in the student_3yr table?",
       "sql_generated": "SELECT COUNT(*) FROM \"student_3yr_All_Data\"",
@@ -150,10 +150,10 @@
         "student_2yr_ALL_FILES_COMBINED",
         "student_4yr_Sheet1"
       ],
-      "ms": 934
+      "ms": 603
     },
     {
-      "timestamp": "2026-08-18T21:24:36.541379",
+      "timestamp": "2026-08-19T09:45:56.659446",
       "step": "SQL_ENGINE",
       "question": "What is Aathi S's attendance percentage from the attendance_5sem table?",
       "sql_generated": "SELECT \"Atten_Percent\" FROM \"attendance_5sem_IT_III\" WHERE \"Name\" LIKE '%Aathi S%'",
@@ -169,10 +169,10 @@
         "admin_academic_5_Attendance_Tracker",
         "marks_5sem_ra_III_IT"
       ],
-      "ms": 1506
+      "ms": 819
     },
     {
-      "timestamp": "2026-08-18T21:24:37.838903",
+      "timestamp": "2026-08-19T09:45:57.469623",
       "step": "SQL_ENGINE",
       "question": "List the name and reg number of the first student in student_2yr",
       "sql_generated": "SELECT \"STUDENT_NAME\", \"Reg_No\" FROM \"student_2yr_ALL_FILES_COMBINED\" ORDER BY \"S_No\" ASC LIMIT 1",
@@ -189,10 +189,10 @@
         "student_3yr_All_Data",
         "student_4yr_Sheet1"
       ],
-      "ms": 1297
+      "ms": 810
     },
     {
-      "timestamp": "2026-08-18T21:24:46.828015",
+      "timestamp": "2026-08-19T09:45:58.272100",
       "step": "SQL_ENGINE",
       "question": "How many students have more than 80% attendance in attendance_5sem?",
       "sql_generated": "SELECT COUNT(*) FROM \"attendance_5sem_IT_III\" WHERE CAST(\"Atten_Percent\" AS REAL) > 0.8",
@@ -208,10 +208,10 @@
         "admin_academic_5_Attendance_Tracker",
         "marks_5sem_ra_III_IT"
       ],
-      "ms": 8988
+      "ms": 802
     },
     {
-      "timestamp": "2026-08-18T21:24:54.480866",
+      "timestamp": "2026-08-19T09:45:59.177154",
       "step": "SQL_ENGINE",
       "question": "What is the blood group of ABARNA from student_2yr?",
       "sql_generated": "SELECT \"Blood_Group\" FROM \"student_2yr_ALL_FILES_COMBINED\" WHERE \"STUDENT_NAME\" LIKE '%ABARNA%'",
@@ -227,10 +227,10 @@
         "student_3yr_All_Data",
         "student_4yr_Sheet1"
       ],
-      "ms": 7653
+      "ms": 905
     },
     {
-      "timestamp": "2026-08-18T21:25:07.728043",
+      "timestamp": "2026-08-19T09:46:06.725551",
       "step": "RETRIEVER",
       "question": "Tell me about Aathi S",
       "filename_filter": "attendance_5sem__IT_III.csv",
@@ -246,10 +246,10 @@
       ],
       "keywords_missing": [],
       "passed": true,
-      "ms": 5682
+      "ms": 2242
     },
     {
-      "timestamp": "2026-08-18T21:25:17.910444",
+      "timestamp": "2026-08-19T09:46:13.822036",
       "step": "RETRIEVER",
       "question": "Who is ABARNA in the student list?",
       "filename_filter": "student_2yr__ALL_FILES_COMBINED.csv",
@@ -265,10 +265,10 @@
         "511524243001"
       ],
       "passed": false,
-      "ms": 10182
+      "ms": 7096
     },
     {
-      "timestamp": "2026-08-18T21:25:22.133976",
+      "timestamp": "2026-08-19T09:46:16.819257",
       "step": "RETRIEVER",
       "question": "5th semester IT results grades",
       "filename_filter": "marks_5sem_ra__III_IT.csv",
@@ -284,10 +284,10 @@
       ],
       "keywords_missing": [],
       "passed": true,
-      "ms": 4223
+      "ms": 2997
     },
     {
-      "timestamp": "2026-08-18T21:25:27.063538",
+      "timestamp": "2026-08-19T09:46:23.054699",
       "step": "RETRIEVER",
       "question": "IT department students batch 2023 2027",
       "filename_filter": null,
@@ -301,10 +301,10 @@
       ],
       "keywords_missing": [],
       "passed": true,
-      "ms": 4929
+      "ms": 6235
     },
     {
-      "timestamp": "2026-08-18T21:25:30.263136",
+      "timestamp": "2026-08-19T09:46:29.812191",
       "step": "E2E_PIPELINE",
       "id": "E2E-1",
       "question": "How many students are in the 2 year batch?",
@@ -325,22 +325,22 @@
             }
           ],
           "error": null,
-          "ms": 728
+          "ms": 5991
         },
         {
           "step": "LLM_FORMAT",
-          "ms": 2411
+          "ms": 715
         }
       ],
-      "total_ms": 3139
+      "total_ms": 6707
     },
     {
-      "timestamp": "2026-08-18T21:25:41.163327",
+      "timestamp": "2026-08-19T09:46:33.790896",
       "step": "E2E_PIPELINE",
       "id": "E2E-2",
       "question": "Tell me about Aathi S",
       "intent": "LOOKUP",
-      "answer": "**Aathi\u202fS** (Reg\u202fNo:\u202f511523205002)  \n- Attendance (5\u202fsem IT\u202fIII):  \n  - Days present:\u202f20.14\u202fdays  \n  - Days absent:\u202f14.86\u202fdays  \n  - Attendance percentage:\u202f57.55\u202f% (\u2248\u202f0.576).",
+      "answer": "**Aathi\u202fS**  \n- **Register No.**\u202f511523205002  \n- **Attendance (5\u202fSem IT\u202fIII)**  \n  - 16\u201122\u202fJul:\u202f28\u202fdays  \n  - 23\u201129\u202fJul:\u202f35\u202fdays  \n  - 30\u202fJul\u20114\u202fAug:\u202f28\u202fdays  \n  - 5\u201111\u202fAug:\u202f1\u202fday  \n  - 12\u201119\u202fAug:\u202f3\u202fdays  \n  - 20\u201128\u202fAug:\u202f9\u202fdays  \n  - 29\u202fAug\u20113\u202fSep:\u202f0\u202fdays  \n- **Total days present:**\u202f20.14  \n- **Total days absent:**\u202f14.86  \n- **Attendance percentage:**\u202f57.55\u202f%",
       "flow": [
         {
           "step": "ROUTER",
@@ -351,17 +351,17 @@
           "step": "RETRIEVER",
           "context_chars": 5159,
           "context_preview": "Table: attendance_5sem__IT_III | Rows 1\u201320\nS_No=1, Reg__No=511523205001, Name=Aasaimani T, 16_7_to_22_7=28, 23_7_to_29_7=7, 30_7_to_4_8=0, 5_8_to_11_8=2, 12_8_to_19_8=24, 20_8_to_28_8=10, 29_8_to_3_9=19, No_of_Days_Absent=12.8571428571429, No_of_Days_Present=22.1428571428571, Atten_Percent=0.6326530",
-          "ms": 10008
+          "ms": 2833
         },
         {
           "step": "LLM_ANSWER",
-          "ms": 892
+          "ms": 1144
         }
       ],
-      "total_ms": 10900
+      "total_ms": 3977
     },
     {
-      "timestamp": "2026-08-18T21:25:55.250617",
+      "timestamp": "2026-08-19T09:47:02.665951",
       "step": "E2E_PIPELINE",
       "id": "E2E-3",
       "question": "What is the blood group of ABARNA?",
@@ -377,17 +377,17 @@
           "step": "RETRIEVER",
           "context_chars": 9029,
           "context_preview": "Table: student_2yr__ALL_FILES_COMBINED | Rows 1\u201320\nS_No=1, Photo_No=IMG_0506.JPG, QR_CODE=511524243001.PNG, Reg_No=511524243001, Batch=2024-2028, STUDENT_NAME=ABARNA.V, Father_Name=VEERASELVAM M, Date_of_Birth=02-10-2006, Blood_Group=O+, Department=AI & DS, Aadhar_Number=8545 0488 2564, Student_Cont",
-          "ms": 11813
+          "ms": 6404
         },
         {
           "step": "LLM_ANSWER",
-          "ms": 2274
+          "ms": 22470
         }
       ],
-      "total_ms": 14087
+      "total_ms": 28875
     },
     {
-      "timestamp": "2026-08-18T21:26:02.734768",
+      "timestamp": "2026-08-19T09:47:10.352728",
       "step": "E2E_PIPELINE",
       "id": "E2E-4",
       "question": "How many students have more than 60% attendance in 5th sem?",
@@ -408,17 +408,17 @@
             }
           ],
           "error": null,
-          "ms": 5431
+          "ms": 7017
         },
         {
           "step": "LLM_FORMAT",
-          "ms": 2051
+          "ms": 668
         }
       ],
-      "total_ms": 7482
+      "total_ms": 7686
     },
     {
-      "timestamp": "2026-08-18T21:26:13.588341",
+      "timestamp": "2026-08-19T09:47:17.069510",
       "step": "E2E_PIPELINE",
       "id": "E2E-5",
       "question": "What is the total number of students in the 3 year data?",
@@ -439,17 +439,17 @@
             }
           ],
           "error": null,
-          "ms": 9893
+          "ms": 5938
         },
         {
           "step": "LLM_FORMAT",
-          "ms": 960
+          "ms": 778
         }
       ],
-      "total_ms": 10853
+      "total_ms": 6716
     },
     {
-      "timestamp": "2026-08-18T21:26:13.596703",
+      "timestamp": "2026-08-19T09:47:17.074128",
       "step": "FLOW_CSV_LAYER",
       "csvs": [
         "data/uploads/attendance_5sem__IT_III.csv"
@@ -457,24 +457,24 @@
       "schema_preview": "Table: \"attendance_5sem_IT_III\"\nColumns: S_No, Reg__No, Name, 16_7_to_22_7, 23_7_to_29_7, 30_7_to_4_8, 5_8_to_11_8, 12_8_to_19_8, 20_8_to_28_8, 29_8_to_3_9, No_of_Days_Absent, No_of_Days_Present, Atten_Percent\nSample rows:\n  S_No=1, Reg__No=511523205001, Name=Aasaimani T, 16_7_to_22_7=28, 23_7_to_29_7=7, 30_7_to_4_8=0, 5_8_to_11_8=2, 12_8_to_19_8=24, 20_8_to_28_8=10, 29_8_to_3_9=19, No_of_Days_Abs"
     },
     {
-      "timestamp": "2026-08-18T21:26:19.336114",
+      "timestamp": "2026-08-19T09:47:19.251533",
       "step": "FLOW_EMBEDDING",
       "question": "Aathi S attendance in 5th semester",
       "dim": 1024,
       "first8": [
-        0.0471,
-        -0.1332,
-        0.0641,
-        0.0608,
-        -0.0062,
-        -0.1211,
-        -0.1165,
-        0.0103
+        0.0479,
+        -0.133,
+        0.064,
+        0.0605,
+        -0.0059,
+        -0.1206,
+        -0.1171,
+        0.0097
       ],
-      "ms": 5739
+      "ms": 2177
     },
     {
-      "timestamp": "2026-08-18T21:26:21.113119",
+      "timestamp": "2026-08-19T09:47:20.691342",
       "step": "FLOW_QDRANT_SEARCH",
       "keys": [
         "documents",
@@ -494,13 +494,13 @@
         "attendance_5sem__IT_III.csv",
         "attendance_5sem__IT_III.csv"
       ],
-      "ms": 1774
+      "ms": 1439
     },
     {
-      "timestamp": "2026-08-18T21:26:40.395407",
+      "timestamp": "2026-08-19T09:47:25.092967",
       "step": "FLOW_SQL_SHAPE",
       "question": "What is Aathi S attendance percentage from attendance_5sem table?",
-      "sql": "SELECT \"Atten_Percent\" FROM \"attendance_5sem_IT_III\" WHERE \"Name\" LIKE '%Aathi S%'",
+      "sql": "SELECT \"Atten_Percent\" FROM \"attendance_5sem_IT_III\" WHERE \"Name\" LIKE 'Aathi S'",
       "columns": [
         "Atten_Percent"
       ],
@@ -509,7 +509,7 @@
         "Atten_Percent": "0.575510204081633"
       },
       "error": null,
-      "ms": 19281
+      "ms": 4401
     }
   ]
 }
