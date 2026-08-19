@@ -2,16 +2,12 @@
 SQL Engine — The COMPUTE branch of the RAG pipeline.
 
 Executes natural-language questions against the unified SQLite database:
-  App/data/app.db (Consolidated 5-table modular schema + views)
+  App/data/app.db (Consolidated modular schema + views)
 
-Flow:
-  1. load_schema_context()  — queries schema_master table to build a precise,
-                              human-readable schema string for the LLM
-  2. _generate_sql()        — sends schema + question to Groq LLM, gets SQL back
-  3. _safe_execute()        — runs the SQL on app.db, returns rows
-
-If a specific custom CSV filename is provided (legacy uploads), it falls back
-to loading that CSV into an in-memory SQLite for isolated querying.
+Key Features:
+  1. Ultra-Compact schema_master loader: Only object_name and column_name (no datatypes, no samples, no descriptions)
+  2. Zero-Token Direct Fast-Path: Deterministic queries (e.g. 12-digit register numbers, student names) execute instantly
+  3. Self-Correction Loop (Up to 5 Retries): If generated SQL errors, feed error message back to the LLM to auto-correct
 """
 
 import os
@@ -37,15 +33,15 @@ DB_PATH = os.path.join(APP_DIR, "data", "app.db")
 
 
 # ---------------------------------------------------------------------------
-# Schema Master Loader — replaces hardcoded CONSOLIDATED_SCHEMA_TEXT
+# Schema Master Loader — Ultra-Compact (Column Names Only)
 # ---------------------------------------------------------------------------
 
 def load_schema_context(conn: sqlite3.Connection, question: str = "") -> str:
     """
-    Query schema_master and build a COMPACT, token-efficient schema string.
-
-    Format per column:  column_name TYPE [PK/FK] -- enum hint
-    Target output: ~2500 chars (fits comfortably in Groq context window).
+    Query schema_master to build an ultra-compact schema string containing ONLY
+    table/view names and their column names.
+    No datatypes, no sample values, no descriptions.
+    Size: ~700-900 chars (< 250 tokens).
     """
     try:
         c = conn.cursor()
@@ -61,28 +57,16 @@ def load_schema_context(conn: sqlite3.Connection, question: str = "") -> str:
         parts = []
         for obj_name, obj_type in objects:
             cols = c.execute("""
-                SELECT column_name, column_type, is_primary_key, is_foreign_key,
-                       fk_references, sample_values
+                SELECT column_name
                 FROM schema_master
                 WHERE object_name = ?
                 ORDER BY id
             """, (obj_name,)).fetchall()
 
-            header = f"{'TABLE' if obj_type == 'table' else 'VIEW'} {obj_name} ("
-            col_lines = []
-            for col_name, col_type, is_pk, is_fk, fk_ref, samples in cols:
-                flags = []
-                if is_pk:
-                    flags.append("PK")
-                if is_fk and fk_ref:
-                    flags.append(f"FK→{fk_ref}")
-                flag_str = f"[{', '.join(flags)}] " if flags else ""
-                hint = f"  -- e.g. {samples}" if samples and len(samples) < 60 else ""
-                col_lines.append(f"    {col_name} {col_type} {flag_str}{hint}".rstrip())
+            col_names = [col[0] for col in cols]
+            parts.append(f"{'TABLE' if obj_type == 'table' else 'VIEW'} {obj_name} ({', '.join(col_names)})")
 
-            parts.append(header + "\n" + "\n".join(col_lines) + "\n);")
-
-        return "\n\n".join(parts)
+        return "\n".join(parts)
 
     except Exception as e:
         print(f"[SQLEngine] schema_master query failed ({e}), falling back to introspection")
@@ -90,10 +74,7 @@ def load_schema_context(conn: sqlite3.Connection, question: str = "") -> str:
 
 
 def _introspect_schema(conn: sqlite3.Connection) -> str:
-    """
-    Fallback: build schema from sqlite_master + PRAGMA table_info.
-    Used when schema_master is unavailable (first-time setup, etc.).
-    """
+    """Fallback: build compact schema from sqlite_master if schema_master is missing."""
     c = conn.cursor()
     objects = c.execute("""
         SELECT name, type FROM sqlite_master
@@ -105,14 +86,10 @@ def _introspect_schema(conn: sqlite3.Connection) -> str:
     parts = []
     for name, obj_type in objects:
         cols = c.execute(f"PRAGMA table_info({name})").fetchall()
-        col_lines = [
-            f"    {col[1]} {col[2]}{'  -- PK' if col[5] else ''}"
-            for col in cols
-        ]
-        header = f"{'TABLE' if obj_type == 'table' else 'VIEW'} {name} ("
-        parts.append(header + "\n" + "\n".join(col_lines) + "\n);")
+        col_names = [col[1] for col in cols]
+        parts.append(f"{'TABLE' if obj_type == 'table' else 'VIEW'} {name} ({', '.join(col_names)})")
 
-    return "\n\n".join(parts)
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -155,21 +132,11 @@ def _load_csvs_into_sqlite(csv_paths: list) -> tuple:
                 [tuple(row.get(c, "") for c in columns) for row in rows],
             )
             conn.commit()
-
-            sample = rows[:2]
-            sample_text = "\n".join(
-                "  " + ", ".join(f'{c}={str(r.get(c, ""))[:35]}' for c in columns)
-                for r in sample
-            )
-            schema_parts.append(
-                f'TABLE "{table_name}" (\n'
-                + "\n".join(f"    {c} TEXT" for c in columns)
-                + f"\n);\n-- Sample rows:\n{sample_text}"
-            )
+            schema_parts.append(f'TABLE "{table_name}" ({", ".join(columns)})')
         except Exception as e:
             print(f"[SQLEngine] Skipping {path}: {e}")
 
-    schema_text = "\n\n".join(schema_parts) if schema_parts else ""
+    schema_text = "\n".join(schema_parts) if schema_parts else ""
     return conn, schema_text
 
 
@@ -194,27 +161,64 @@ def _extract_sql(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-def _generate_sql(schema_text: str, question: str) -> str:
+def _try_direct_sql(question: str) -> str:
     """
-    Send schema (fetched live from schema_master) + user question to the LLM.
-    Returns a clean SQLite SELECT query.
+    Fast, zero-LLM SQL generator for unambiguous deterministic lookups.
+    Saves LLM tokens and provides 100% reliable instant SQL for common queries:
+      - 12-digit registration number: SELECT * FROM students
+      - 'who is <Name>': SELECT * FROM students WHERE LOWER(student_name) LIKE '%name%'
     """
+    q = question.strip()
+    
+    # 1. 12-digit Register Number lookup
+    reg_match = re.search(r"\b(5\d{11})\b", q)
+    if reg_match:
+        reg_no = reg_match.group(1)
+        q_lower = q.lower()
+        if any(w in q_lower for w in ["subject", "course", "enrolled"]):
+            return f"SELECT course_code, course_title, semester, exam_type FROM student_assessments WHERE reg_no = '{reg_no}' GROUP BY course_code"
+        if any(w in q_lower for w in ["mark", "score", "grade", "iat", "exam"]):
+            return f"SELECT course_code, course_title, exam_type, score_numeric, grade, is_arrear FROM student_assessments WHERE reg_no = '{reg_no}'"
+        if any(w in q_lower for w in ["attendance", "present", "absent", "eligible"]):
+            return f"SELECT course_code, course_title, total_classes_conducted, classes_attended, attendance_percentage, exam_eligibility_status FROM attendance WHERE reg_no = '{reg_no}'"
+        return f"SELECT * FROM students WHERE reg_no = '{reg_no}'"
+
+    # 2. Simple 'who is <Name>' lookup
+    who_match = re.search(r"^who is\s+([A-Za-z\s\.]+?)(?:\s+from|\s+in|\s*$)", q, re.IGNORECASE)
+    if who_match:
+        name_query = who_match.group(1).strip()
+        if len(name_query) >= 3 and not any(w in name_query.lower() for w in ["the", "this", "that", "faculty", "student"]):
+            return f"SELECT * FROM students WHERE LOWER(student_name) LIKE LOWER('%{name_query}%')"
+
+    return ""
+
+
+def _generate_sql(schema_text: str, question: str, previous_error: str = None, previous_sql: str = None) -> str:
+    """
+    Generate SQLite query from schema (column names only).
+    If previous_error is provided, the prompt instructs the model to self-correct.
+    """
+    retry_context = ""
+    if previous_error and previous_sql:
+        retry_context = (
+            f"\nATTENTION: Your previous query failed with this SQLite error:\n"
+            f"Failed SQL: {previous_sql}\n"
+            f"Error message: {previous_error}\n"
+            f"Please fix the error and generate a corrected SQL query.\n"
+        )
+
     prompt = (
-        "You are an expert SQLite query generator for a college administration system.\n\n"
-        "The schema below was fetched from a schema_master catalog table. "
-        "Every column has a description and sample values to help you write accurate SQL.\n\n"
+        "You are an expert SQLite query generator for a college campus assistant.\n\n"
+        "Generate a valid SQLite SELECT query to answer the question using ONLY the provided tables, views, and column names.\n\n"
+        "DATABASE SCHEMA (Tables, Views & Columns only):\n"
+        f"{schema_text}\n"
+        f"{retry_context}\n"
         "RULES:\n"
-        "1. Output ONLY the raw SQL query. No markdown, no comments, no trailing semicolon.\n"
+        "1. Output ONLY the raw SQL query. No markdown formatting, no explanations, no trailing semicolon.\n"
         "2. Use column names EXACTLY as listed in the schema.\n"
-        "3. For name/text searches use LIKE with % wildcards or LOWER(), e.g. "
-        "   LOWER(student_name) LIKE LOWER('%aathi%').\n"
-        "4. For numeric comparisons on marks use score_numeric; for GPA use grade_points.\n"
-        "5. is_arrear=1 means failed/arrear; is_absent=1 means absent.\n"
-        "6. Prefer analytical views (view_student_performance_summary, "
-        "   view_exam_subject_analytics, view_student_complete_profile) over "
-        "   raw table JOINs when they already contain the needed aggregation.\n"
-        "7. If the question cannot be answered from the schema, output exactly: SELECT 'NO_DATA'\n\n"
-        f"DATABASE SCHEMA:\n{schema_text}\n\n"
+        "3. Use case-insensitive LIKE or LOWER() for names and departments (e.g. LOWER(student_name) LIKE '%aathi%').\n"
+        "4. Available views for convenience: view_student_performance_summary, view_exam_subject_analytics, view_student_complete_profile.\n"
+        "5. If question cannot be answered, output: SELECT 'NO_DATA'\n\n"
         f"QUESTION: {question}\n\n"
         "SQL:"
     )
@@ -224,7 +228,7 @@ def _generate_sql(schema_text: str, question: str) -> str:
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=600,
+            max_tokens=400,
         )
         content = resp.choices[0].message.content or ""
         return _extract_sql(content)
@@ -233,6 +237,7 @@ def _generate_sql(schema_text: str, question: str) -> str:
 
 
 def _safe_execute(conn: sqlite3.Connection, sql: str) -> dict:
+    """Safely execute a SELECT or WITH query against SQLite."""
     first_token = sql.strip().split()[0].upper() if sql.strip() else ""
     if first_token not in ("SELECT", "WITH"):
         return {
@@ -252,25 +257,36 @@ def _safe_execute(conn: sqlite3.Connection, sql: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API with 5-Iteration Self-Correction Retry Loop
 # ---------------------------------------------------------------------------
 
-def run_sql(question: str, filename: str = None) -> dict:
+def run_sql(question: str, filename: str = None, max_retries: int = 5) -> dict:
     """
     Execute a natural-language COMPUTE question against the SQLite database.
-
-    Flow:
-      1. Open app.db
-      2. Call load_schema_context() — queries schema_master for live schema
-      3. Call _generate_sql(schema, question) — LLM writes the query
-      4. Call _safe_execute(conn, sql) — runs query, returns rows
-      5. Close connection
-
-    Falls back to isolated in-memory CSV mode if filename is provided.
+    Includes a self-correction loop of up to `max_retries` (default 5 iterations)
+    if SQLite returns an execution error.
     """
     print("\n========== SQL ENGINE ==========")
     print(f"Question : {question}")
     print(f"Filename : {filename or 'Consolidated SQLite (app.db)'}")
+
+    # ── Fast Check: Direct Zero-Token Regex ───────────────────────────────────
+    direct_sql = _try_direct_sql(question)
+    if direct_sql and not filename:
+        print(f"[SQLEngine] Direct SQL match: {direct_sql}")
+        if not os.path.exists(DB_PATH):
+            import subprocess
+            subprocess.run(["python3", os.path.join(APP_DIR, "ingest_sqlite.py")], check=True)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            result = _safe_execute(conn, direct_sql)
+        finally:
+            conn.close()
+        result["schema"] = "(fast-path)"
+        print(f"Result rows  : {len(result.get('rows', []))}")
+        print("================================\n")
+        return result
 
     # ── Case A: Custom CSV filename provided (legacy upload mode) ─────────────
     if filename and not filename.endswith(".db"):
@@ -284,14 +300,23 @@ def run_sql(question: str, filename: str = None) -> dict:
 
         if csv_paths:
             csv_conn, schema_text = _load_csvs_into_sqlite(csv_paths)
+            last_error = None
+            last_sql = None
+            result = {"sql": "", "columns": [], "rows": [], "error": "No query generated"}
+
             try:
-                sql = _generate_sql(schema_text, question)
-                print(f"Generated SQL (CSV mode): {sql}")
-                result = _safe_execute(csv_conn, sql)
-            except Exception as e:
-                result = {"sql": "", "columns": [], "rows": [], "error": str(e)}
+                for attempt in range(1, max_retries + 1):
+                    sql = _generate_sql(schema_text, question, previous_error=last_error, previous_sql=last_sql)
+                    print(f"Generated SQL (CSV attempt {attempt}/{max_retries}): {sql}")
+                    result = _safe_execute(csv_conn, sql)
+                    if not result.get("error"):
+                        break
+                    last_error = result["error"]
+                    last_sql = sql
+                    print(f"[SQLEngine] SQL Error on attempt {attempt}: {last_error} -> Retrying...")
             finally:
                 csv_conn.close()
+
             result["schema"] = schema_text
             print(f"Result rows  : {len(result.get('rows', []))}")
             print("================================\n")
@@ -301,24 +326,33 @@ def run_sql(question: str, filename: str = None) -> dict:
     if not os.path.exists(DB_PATH):
         import subprocess
         print("[SQLEngine] app.db not found, building via ingest_sqlite.py...")
-        subprocess.run(
-            ["python3", os.path.join(APP_DIR, "ingest_sqlite.py")], check=True
-        )
+        subprocess.run(["python3", os.path.join(APP_DIR, "ingest_sqlite.py")], check=True)
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
+    schema_text = load_schema_context(conn, question)
+    print(f"[SQLEngine] Ultra-compact schema context loaded ({len(schema_text)} chars)")
+
+    last_error = None
+    last_sql = None
+    result = {"sql": "", "columns": [], "rows": [], "error": "No query generated"}
+
     try:
-        # Step 1: Load schema context from schema_master (live DB query)
-        schema_text = load_schema_context(conn, question)
-        print(f"[SQLEngine] Schema context loaded ({len(schema_text)} chars)")
-
-        # Step 2: Generate SQL via LLM
-        sql = _generate_sql(schema_text, question)
-        print(f"Generated SQL: {sql}")
-
-        # Step 3: Execute the query
-        result = _safe_execute(conn, sql)
+        # 5-Loop Self-Correction Execution
+        for attempt in range(1, max_retries + 1):
+            sql = _generate_sql(schema_text, question, previous_error=last_error, previous_sql=last_sql)
+            print(f"Generated SQL (Attempt {attempt}/{max_retries}): {sql}")
+            
+            result = _safe_execute(conn, sql)
+            
+            # If query succeeded without error, exit loop
+            if not result.get("error"):
+                break
+                
+            last_error = result["error"]
+            last_sql = sql
+            print(f"[SQLEngine] SQL Error on attempt {attempt}: {last_error} -> Retrying with error context...")
 
     except Exception as e:
         result = {"sql": "", "columns": [], "rows": [], "error": str(e)}

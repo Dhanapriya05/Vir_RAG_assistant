@@ -319,34 +319,23 @@ def run_schema_suite():
     checks.append(("all 9 objects covered", ok, str(missing)))
     print(f"  {passed('All 9 DB objects covered in schema_master') if ok else failed(f'Missing: {missing}')}")
 
-    # Check 4: FK references populated
-    fk_count = conn.execute(
-        "SELECT COUNT(*) FROM schema_master WHERE is_foreign_key=1 AND fk_references IS NOT NULL"
-    ).fetchone()[0]
-    ok = fk_count >= 4  # reg_no FKs across assessments, attendance, etc.
+    # Check 4: Ultra-compact schema has object_name, object_type, column_name
+    cols = [c[1] for c in conn.execute("PRAGMA table_info(schema_master)").fetchall()]
+    ok = all(k in cols for k in ["object_name", "object_type", "column_name"])
     if ok: correct += 1
-    checks.append(("FK references set", ok, str(fk_count)))
-    print(f"  {passed(f'{fk_count} FK references defined') if ok else failed(f'Only {fk_count} FK references')}")
+    checks.append(("schema_master structure valid", ok, str(cols)))
+    print(f"  {passed('schema_master table columns verified (object_name, object_type, column_name)') if ok else failed('Invalid columns in schema_master')}")
 
-    # Check 5: PK columns marked
-    pk_count = conn.execute(
-        "SELECT COUNT(*) FROM schema_master WHERE is_primary_key=1"
-    ).fetchone()[0]
-    ok = pk_count >= 6
-    if ok: correct += 1
-    checks.append(("PK columns marked", ok, str(pk_count)))
-    print(f"  {passed(f'{pk_count} primary keys marked') if ok else failed(f'Only {pk_count} PKs marked')}")
-
-    # Check 6: load_schema_context returns reasonable size
+    # Check 5: load_schema_context returns ultra-compact size (< 2500 chars)
     from services.sql_engine import load_schema_context
     ctx = load_schema_context(conn)
-    ok = 1000 < len(ctx) < 8000
+    ok = 500 < len(ctx) < 2500
     if ok: correct += 1
-    checks.append(("schema context size 1K–8K", ok, f"{len(ctx)} chars"))
-    print(f"  {passed(f'Schema context = {len(ctx)} chars (within 1K–8K range)') if ok else failed(f'Schema context is {len(ctx)} chars (out of range)')}")
+    checks.append(("ultra-compact schema context (500-2500 chars)", ok, f"{len(ctx)} chars"))
+    print(f"  {passed(f'Schema context = {len(ctx)} chars (~{len(ctx)//4} tokens, ultra-compact)') if ok else failed(f'Schema context is {len(ctx)} chars')}")
 
     conn.close()
-    total = 6
+    total = 5
     pct = 100 * correct // total
     print(f"\n  {BOLD}Schema Integrity Score: {correct}/{total} = {pct}%{RESET}")
     return checks, correct, total

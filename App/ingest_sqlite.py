@@ -252,20 +252,14 @@ def init_schema(conn: sqlite3.Connection):
     ) att ON s.reg_no = att.reg_no
     LEFT JOIN view_student_performance_summary perf ON s.reg_no = perf.reg_no;
 
-    -- ── Schema Master (LLM Context Catalog) ──────────────────────────────
-    -- Stores every table/view column with human-readable descriptions
-    -- so the LLM can get the full DB layout by querying this one table.
+    -- ── Schema Master (Ultra-Lightweight Columns Catalog) ───────────────
+    -- Stores ONLY table/view name, object_type, and column_name.
+    -- No datatypes, no sample values, no descriptions.
     CREATE TABLE IF NOT EXISTS schema_master (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         object_name         TEXT NOT NULL,
         object_type         TEXT NOT NULL,
         column_name         TEXT NOT NULL,
-        column_type         TEXT,
-        is_primary_key      INTEGER DEFAULT 0,
-        is_foreign_key      INTEGER DEFAULT 0,
-        fk_references       TEXT,
-        description         TEXT,
-        sample_values       TEXT,
         UNIQUE(object_name, column_name)
     );
     CREATE INDEX IF NOT EXISTS idx_schema_obj ON schema_master(object_name);
@@ -996,32 +990,29 @@ SCHEMA_METADATA = {
 
 def ingest_schema_master(conn: sqlite3.Connection):
     """
-    Populate the schema_master table with rich metadata for all tables and views.
-    This single table is the LLM's map of the entire database.
+    Populate the schema_master table with column names only.
+    No datatypes, sample values, or descriptions.
     """
-    print("\n--- Building Schema Master Catalog ---")
+    print("\n--- Building Ultra-Compact Schema Master Catalog ---")
     c = conn.cursor()
     c.execute("DELETE FROM schema_master")  # Idempotent reset
 
     total = 0
     for obj_name, columns in SCHEMA_METADATA.items():
         obj_type = columns.get("_type", "table")
-        for col_name, meta in columns.items():
+        for col_name in columns.keys():
             if col_name.startswith("_"):
                 continue
-            col_type, is_pk, is_fk, fk_ref, description, samples = meta
             c.execute("""
             INSERT OR REPLACE INTO schema_master
-                (object_name, object_type, column_name, column_type,
-                 is_primary_key, is_foreign_key, fk_references,
-                 description, sample_values)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (obj_name, obj_type, col_name, col_type,
-                  is_pk, is_fk, fk_ref, description, samples))
+                (object_name, object_type, column_name)
+            VALUES (?, ?, ?)
+            """, (obj_name, obj_type, col_name))
             total += 1
 
     conn.commit()
-    print(f"✓ Schema master populated: {total} column entries across {len(SCHEMA_METADATA)} objects.")
+    print(f"✓ Ultra-compact schema master populated: {total} columns across {len(SCHEMA_METADATA)} objects.")
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
