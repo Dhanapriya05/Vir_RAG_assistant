@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+
+
   Camera,
   CameraOff,
   UserCheck,
@@ -142,13 +144,12 @@ export default function HumanFaceDetector() {
         {/* Live Status Pill */}
         <div className="flex items-center gap-2">
           <span
-            className={`h-2.5 w-2.5 rounded-full ${
-              localDetected
+            className={`h-2.5 w-2.5 rounded-full ${localDetected
                 ? "bg-emerald-500 animate-ping"
                 : isActive
-                ? "bg-blue-500 animate-pulse"
-                : "bg-slate-300"
-            }`}
+                  ? "bg-blue-500 animate-pulse"
+                  : "bg-slate-300"
+              }`}
           />
           <div className="text-xs font-semibold text-slate-700">
             {localDetected ? (
@@ -174,11 +175,10 @@ export default function HumanFaceDetector() {
         <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
           <button
             onClick={toggleSensor}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition-all ${
-              isActive
+            className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition-all ${isActive
                 ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
                 : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm hover:from-blue-500 hover:to-indigo-500"
-            }`}
+              }`}
           >
             {isActive ? (
               <>
