@@ -140,13 +140,30 @@ def _load_csvs_into_sqlite(csv_paths: list) -> tuple:
     return conn, schema_text
 
 
+def _find_csv_paths(filename: str = None) -> list:
+    """Find matching CSV files in UPLOAD_FOLDER."""
+    if filename and not filename.endswith(".db"):
+        pattern = os.path.join(UPLOAD_FOLDER, f"*_{filename}")
+        matches = glob.glob(pattern)
+        if not matches:
+            direct = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(direct):
+                matches = [direct]
+        return [m for m in matches if m.endswith(".csv")]
+    return glob.glob(os.path.join(UPLOAD_FOLDER, "*.csv"))
+
+
 def _extract_sql(text: str) -> str:
+    """Extract clean SELECT/WITH SQL statement from LLM response."""
+    if not text:
+        return ""
+    
     code_block = re.search(r"```(?:sql)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     if code_block:
         sql = code_block.group(1).strip()
     else:
-        select_match = re.search(r"(SELECT\b[\s\S]+)", text, re.IGNORECASE)
-        sql = select_match.group(1).strip() if select_match else text.strip()
+        select_match = re.search(r"\b(SELECT|WITH)\b[\s\S]+", text, re.IGNORECASE)
+        sql = select_match.group(0).strip() if select_match else text.strip()
 
     sql = re.sub(r";\s*$", "", sql).strip()
 

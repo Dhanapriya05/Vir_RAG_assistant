@@ -1,7 +1,7 @@
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
-from services.section_detector import detect_section
+from services.section_parser import detect_section
 from config import QDRANT_URL, QDRANT_API_KEY
 
 COLLECTION_NAME = "pdf-rag-chatbot"
@@ -116,13 +116,25 @@ def search_embeddings(query_embedding, filename=None, top_k=10):
 
     client = get_client()
     try:
-        results = client.search(
-            collection_name=COLLECTION_NAME,
-            query_vector=list(query_embedding),
-            query_filter=query_filter,
-            limit=top_k,
-            with_payload=True
-        )
+        if hasattr(client, "query_points"):
+            query_res = client.query_points(
+                collection_name=COLLECTION_NAME,
+                query=list(query_embedding),
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+            results = query_res.points
+        elif hasattr(client, "search"):
+            results = client.search(
+                collection_name=COLLECTION_NAME,
+                query_vector=list(query_embedding),
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+        else:
+            results = []
     except Exception as e:
         print(f"Error querying Qdrant: {e}")
         return {"documents": [[]], "sources": []}

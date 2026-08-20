@@ -21,7 +21,12 @@ st.set_page_config(
 # --------------------------------------------------
 
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "## 🎓 Welcome to P.T. Lee Chengalvaraya Naicker College of Engineering and Technology! 🌟\n\n✨ **We’re delighted to have you here!**\n\nWelcome to our college website, your gateway to **learning, innovation, technology, and opportunities.** 🚀\n\n💬 **How can I help you today?**",
+        }
+    ]
 
 if "document_uploaded" not in st.session_state:
     st.session_state.document_uploaded = False
@@ -94,13 +99,8 @@ with st.sidebar:
     st.subheader("Upload Document")
 
     uploaded_file = st.file_uploader(
-<<<<<<< HEAD
         "Choose a document",
         type=["pdf", "docx", "txt", "csv"]
-=======
-        "Choose a PDF",
-        type=["pdf","csv","docx"]
->>>>>>> 86345c40f3e67855023c238de48c970523a7f696
     )
 
     if uploaded_file is not None:

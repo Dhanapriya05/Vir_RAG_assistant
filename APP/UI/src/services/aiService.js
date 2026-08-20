@@ -67,6 +67,12 @@ export async function askCollegeAI(question, history = [], filename = "") {
 
 export const welcomeMessage = {
   found: true,
-  content: `How can I help you today Sir/Mam?`,
+  content: `## 🎓 Welcome to P.T. Lee Chengalvaraya Naicker College of Engineering and Technology! 🌟
+
+✨ **We’re delighted to have you here!**
+
+Welcome to our college website, your gateway to **learning, innovation, technology, and opportunities.** 🚀
+
+💬 **How can I help you today?**`,
   source: null,
 };

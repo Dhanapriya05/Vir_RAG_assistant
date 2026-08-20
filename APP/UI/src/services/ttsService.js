@@ -1,4 +1,20 @@
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Text-to-Speech Service using browser Web Speech API
+
+export function cleanSpeechText(md) {
+  if (!md) return "";
+  return md
+    .replace(/```[\s\S]*?```/g, "")           // Remove code blocks
+    .replace(/`([^`]+)`/g, "$1")               // Inline code
+    .replace(/#{1,6}\s+/g, "")                 // Markdown headers
+    .replace(/\*\*([^*]+)\*\*/g, "$1")         // Bold
+    .replace(/\*([^*]+)\*/g, "$1")             // Italic
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")   // Links
+    .replace(/^[-*•]\s+/gm, "")                // Bullet points
+    .replace(/^\d+\.\s+/gm, "")                // Numbered lists
+    .replace(/[_~>|]/g, "")                    // Misc markdown symbols
+    .replace(/\s+/g, " ")                      // Normalize whitespace
+    .trim();
+}
 
 export function speak(text, options = {}) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -7,57 +23,51 @@ export function speak(text, options = {}) {
   }
 
   stopSpeaking();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.onend = options.onEnd;
-  utterance.onerror = options.onEnd;
-  window.speechSynthesis.speak(utterance);
+
+  const cleaned = cleanSpeechText(text);
+  if (!cleaned) {
+    options.onEnd?.();
+    return null;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(cleaned);
+  utterance.rate = options.rate || 1.0;
+  utterance.pitch = options.pitch || 1.0;
+  utterance.lang = options.lang || "en-US";
+
+  // Pick an articulate English voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const selectedVoice = voices.find(
+    (v) => (v.lang.startsWith("en") || v.lang.startsWith("en-IN")) && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha"))
+  ) || voices.find((v) => v.lang.startsWith("en"));
+
+  if (selectedVoice) {
+    utterance.voice = selectedVoice;
+  }
+
+  utterance.onend = () => {
+    options.onEnd?.();
+  };
+
+  utterance.onerror = (e) => {
+    console.warn("TTS playback encountered an error or was interrupted:", e);
+    options.onEnd?.();
+  };
+
+  try {
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.warn("Speech synthesis invocation failed:", err);
+    options.onEnd?.();
+  }
+
   return utterance;
 }
 
 export function stopSpeaking() {
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
   }
-}
-
-export const processingStages = [
-  { id: "buffer", label: "READING BUFFER", detail: "Loading file into memory" },
-  { id: "extract", label: "EXTRACTING CONTENT", detail: "Parsing text & structure" },
-  { id: "chunk", label: "CHUNKING", detail: "256 token windows" },
-  { id: "embed", label: "GENERATING EMBEDDINGS", detail: "768-dim vectors" },
-  { id: "index", label: "INDEXING VECTOR STORE", detail: "Building retrievable index" },
-  { id: "ready", label: "INDEX READY", detail: "Knowledge activated" },
-];
-
-// Simulate document processing through all stages, calling onProgress per stage
-export async function processDocument(file, onProgress) {
-  for (let i = 0; i < processingStages.length; i++) {
-    const stage = processingStages[i];
-    onProgress({ stage, index: i, status: "processing" });
-    await sleep(550 + Math.random() * 450);
-    onProgress({ stage, index: i, status: "complete" });
-  }
-  // Build a realistic document object from the uploaded file
-  const isPdf = file.type?.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
-  const isDocx = file.name.toLowerCase().endsWith(".docx");
-  const type = isPdf ? "pdf" : isDocx ? "docx" : "txt";
-  const sizeMB = Math.max(0.1, (file.size || 102400) / (1024 * 1024));
-  const pages = Math.max(1, Math.round(sizeMB * 4 + Math.random() * 6));
-  const tokens = Math.round(pages * 380 + Math.random() * 200);
-  const chunks = Math.round(tokens / 128);
-
-  return {
-    id: `doc_${Date.now()}`,
-    name: file.name,
-    type,
-    size: Math.round(sizeMB * 10) / 10,
-    pages,
-    chunks,
-    tokens,
-    embeddingDimensions: 768,
-    status: "indexed",
-    uploadedAt: new Date().toISOString().slice(0, 10),
-    active: false,
-    color: "#EF4444",
-  };
-}
+}
