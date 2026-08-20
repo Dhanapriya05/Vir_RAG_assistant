@@ -5,7 +5,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-
+node_modules/
 # -----------------------------
 # Virtual Environment
 # -----------------------------
